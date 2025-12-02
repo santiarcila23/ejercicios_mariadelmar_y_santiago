@@ -1,0 +1,292 @@
+#EJERCICIO 1.1 GESTION DE MATERIALES BIBLIOGRAFICOS
+from datetime import datetime
+
+# Clase base - ENCAPSULAMIENTO
+class MaterialBibliografico:
+    def __init__(self, titulo, autor, año_publicacion, codigo_unico):
+        self.__titulo = titulo
+        self.__autor = autor
+        self.__año_publicacion = año_publicacion
+        self.__codigo_unico = codigo_unico
+    
+    def get_titulo(self):
+        return self.__titulo
+    
+    def set_titulo(self, titulo):
+        if not titulo or not isinstance(titulo, str):
+            raise ValueError("Título inválido")
+        self.__titulo = titulo
+    
+    def get_autor(self):
+        return self.__autor
+    
+    def set_autor(self, autor):
+        if not autor or not isinstance(autor, str):
+            raise ValueError("Autor inválido")
+        self.__autor = autor
+    
+    def get_año_publicacion(self):
+        return self.__año_publicacion
+    
+    def set_año_publicacion(self, año):
+        if not isinstance(año, int) or año < 0 or año > datetime.now().year:
+            raise ValueError("Año de publicación inválido")
+        self.__año_publicacion = año
+    
+    def get_codigo_unico(self):
+        return self.__codigo_unico
+    
+    def set_codigo_unico(self, codigo):
+        if not codigo or not isinstance(codigo, str):
+            raise ValueError("Código único inválido")
+        self.__codigo_unico = codigo
+    
+    def calcular_valor_prestamo(self, dias):
+        raise NotImplementedError("Este método debe ser implementado")
+    
+    def obtener_tipo_material(self):
+        raise NotImplementedError("Este método debe ser implementado")
+    
+    def __str__(self):
+        return f"{self.obtener_tipo_material()}: {self.__titulo} - {self.__autor} ({self.__año_publicacion})"
+
+# HERENCIA - LibroFisico
+class LibroFisico(MaterialBibliografico):
+    def __init__(self, titulo, autor, año_publicacion, codigo_unico, num_paginas, editorial, estado_fisico):
+        super().__init__(titulo, autor, año_publicacion, codigo_unico)
+        self.__num_paginas = num_paginas
+        self.__editorial = editorial
+        self.__estado_fisico = estado_fisico
+    
+    def calcular_valor_prestamo(self, dias):
+        return 2.00 * dias
+    
+    def obtener_tipo_material(self):
+        return "Libro Físico"
+    
+    def get_num_paginas(self):
+        return self.__num_paginas
+    
+    def set_num_paginas(self, paginas):
+        if not isinstance(paginas, int) or paginas <= 0:
+            raise ValueError("Número de páginas inválido")
+        self.__num_paginas = paginas
+    
+    def get_editorial(self):
+        return self.__editorial
+    
+    def set_editorial(self, editorial):
+        if not editorial or not isinstance(editorial, str):
+            raise ValueError("Editorial inválida")
+        self.__editorial = editorial
+    
+    def get_estado_fisico(self):
+        return self.__estado_fisico
+    
+    def set_estado_fisico(self, estado):
+        estados_validos = ["excelente", "bueno", "regular", "malo"]
+        if estado not in estados_validos:
+            raise ValueError("Estado físico inválido")
+        self.__estado_fisico = estado
+    
+    def __str__(self):
+        base = super().__str__()
+        return f"{base} | Páginas: {self.__num_paginas} | Editorial: {self.__editorial}"
+
+# HERENCIA - LibroElectronico
+class LibroElectronico(MaterialBibliografico):
+    def __init__(self, titulo, autor, año_publicacion, codigo_unico, tamaño_mb, formato, url_descarga):
+        super().__init__(titulo, autor, año_publicacion, codigo_unico)
+        self.__tamaño_mb = tamaño_mb
+        self.__formato = formato
+        self.__url_descarga = url_descarga
+    
+    def calcular_valor_prestamo(self, dias):
+        return 1.00 * dias
+    
+    def obtener_tipo_material(self):
+        return "Libro Electrónico"
+    
+    def get_tamaño_mb(self):
+        return self.__tamaño_mb
+    
+    def set_tamaño_mb(self, tamaño):
+        if not isinstance(tamaño, (int, float)) or tamaño <= 0:
+            raise ValueError("Tamaño inválido")
+        self.__tamaño_mb = tamaño
+    
+    def get_formato(self):
+        return self.__formato
+    
+    def set_formato(self, formato):
+        formatos_validos = ["PDF", "EPUB", "MOBI", "AZW"]
+        if formato not in formatos_validos:
+            raise ValueError("Formato inválido")
+        self.__formato = formato
+    
+    def get_url_descarga(self):
+        return self.__url_descarga
+    
+    def set_url_descarga(self, url):
+        if not url or "http" not in url:
+            raise ValueError("URL inválida")
+        self.__url_descarga = url
+    
+    def __str__(self):
+        base = super().__str__()
+        return f"{base} | Formato: {self.__formato} | Tamaño: {self.__tamaño_mb}MB"
+
+# HERENCIA - Revista
+class Revista(MaterialBibliografico):
+    def __init__(self, titulo, autor, año_publicacion, codigo_unico, numero_edicion, mes_publicacion):
+        super().__init__(titulo, autor, año_publicacion, codigo_unico)
+        self.__numero_edicion = numero_edicion
+        self.__mes_publicacion = mes_publicacion
+    
+    def calcular_valor_prestamo(self, dias):
+        return 0.50 * dias
+    
+    def obtener_tipo_material(self):
+        return "Revista"
+    
+    def get_numero_edicion(self):
+        return self.__numero_edicion
+    
+    def set_numero_edicion(self, numero):
+        if not isinstance(numero, int) or numero <= 0:
+            raise ValueError("Número de edición inválido")
+        self.__numero_edicion = numero
+    
+    def get_mes_publicacion(self):
+        return self.__mes_publicacion
+    
+    def set_mes_publicacion(self, mes):
+        meses_validos = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+                        "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
+        if mes not in meses_validos:
+            raise ValueError("Mes inválido")
+        self.__mes_publicacion = mes
+    
+    def __str__(self):
+        base = super().__str__()
+        return f"{base} | Edición: {self.__numero_edicion} | Mes: {self.__mes_publicacion}"
+
+# HERENCIA - Audiolibro
+class Audiolibro(MaterialBibliografico):
+    def __init__(self, titulo, autor, año_publicacion, codigo_unico, duracion_minutos, narrador, formato_audio):
+        super().__init__(titulo, autor, año_publicacion, codigo_unico)
+        self.__duracion_minutos = duracion_minutos
+        self.__narrador = narrador
+        self.__formato_audio = formato_audio
+    
+    def calcular_valor_prestamo(self, dias):
+        return 1.50 * dias
+    
+    def obtener_tipo_material(self):
+        return "Audiolibro"
+    
+    def get_duracion_minutos(self):
+        return self.__duracion_minutos
+    
+    def set_duracion_minutos(self, duracion):
+        if not isinstance(duracion, (int, float)) or duracion <= 0:
+            raise ValueError("Duración inválida")
+        self.__duracion_minutos = duracion
+    
+    def get_narrador(self):
+        return self.__narrador
+    
+    def set_narrador(self, narrador):
+        if not narrador or not isinstance(narrador, str):
+            raise ValueError("Narrador inválido")
+        self.__narrador = narrador
+    
+    def get_formato_audio(self):
+        return self.__formato_audio
+    
+    def set_formato_audio(self, formato):
+        formatos_validos = ["MP3", "WAV", "AAC", "FLAC"]
+        if formato not in formatos_validos:
+            raise ValueError("Formato de audio inválido")
+        self.__formato_audio = formato
+    
+    def __str__(self):
+        base = super().__str__()
+        return f"{base} | Duración: {self.__duracion_minutos}min | Narrador: {self.__narrador}"
+
+# PROGRAMA DE PRUEBA
+def test_ejercicio_1_1():
+    print("=" * 60)
+    print("EJERCICIO 1.1: GESTIÓN DE MATERIALES BIBLIOGRÁFICOS")
+    print("=" * 60)
+    
+    try:
+        material = MaterialBibliografico("Test", "Autor", 2023, "ABC123")
+        print("❌ Debería fallar al crear objeto de clase base")
+    except NotImplementedError as e:
+        print("✅ No se puede usar métodos de clase base:", e)
+    
+    materiales = []
+    
+    # Crear 2 Libros Físicos
+    libro1 = LibroFisico("Cien Años de Soledad", "Gabriel García Márquez", 
+                         1967, "LIB001", 471, "Sudamericana", "bueno")
+    libro2 = LibroFisico("Don Quijote", "Miguel de Cervantes", 
+                         1605, "LIB002", 863, "Francisco de Robles", "regular")
+    materiales.append(libro1)
+    materiales.append(libro2)
+    
+    # Crear 2 Libros Electrónicos
+    ebook1 = LibroElectronico("Python Crash Course", "Eric Matthes", 
+                              2015, "ELE001", 5.2, "PDF", "https://descarga.com/python.pdf")
+    ebook2 = LibroElectronico("Clean Code", "Robert Martin", 
+                              2008, "ELE002", 3.8, "EPUB", "https://descarga.com/cleancode.epub")
+    materiales.append(ebook1)
+    materiales.append(ebook2)
+    
+    # Crear 2 Revistas
+    revista1 = Revista("National Geographic", "Varios Autores", 
+                       2023, "REV001", 245, "Octubre")
+    revista2 = Revista("Scientific American", "Varios Autores", 
+                       2023, "REV002", 321, "Noviembre")
+    materiales.append(revista1)
+    materiales.append(revista2)
+    
+    # Crear 2 Audiolibros
+    audio1 = Audiolibro("El Principito", "Antoine de Saint-Exupéry", 
+                        1943, "AUD001", 120, "Luis Piedrahita", "MP3")
+    audio2 = Audiolibro("1984", "George Orwell", 
+                        1949, "AUD002", 300, "Juan Carlos Pérez", "MP3")
+    materiales.append(audio1)
+    materiales.append(audio2)
+    
+    print("\n📚 MATERIALES CREADOS:")
+    for i, material in enumerate(materiales, 1):
+        print(f"{i}. {material}")
+    
+    print("\n💰 POLIMORFISMO - Cálculo de préstamos diferentes:")
+    for material in materiales:
+        tipo = material.obtener_tipo_material()
+        costo = material.calcular_valor_prestamo(3)
+        print(f"{tipo:20} → ${costo:.2f} por 3 días")
+    
+    print("\n🎯 ABSTRACCIÓN - Usando lista polimórfica:")
+    total = 0
+    for material in materiales:
+        total += material.calcular_valor_prestamo(7)
+    
+    print(f"💵 Costo total para 7 días de todos los materiales: ${total:.2f}")
+    
+    print("\n🔒 ENCAPSULAMIENTO - Acceso controlado:")
+    try:
+        # Esto debería fallar
+        print("Intentando acceder a título privado:", libro1.__titulo)
+    except AttributeError:
+        print("✅ Atributo privado correctamente protegido")
+    
+    print("\n🔧 Usando getters y setters:")
+    libro1.set_titulo("Cien Años de Soledad (Edición Especial)")
+    print("Nuevo título:", libro1.get_titulo())
+
+if __name__ == "__main__":
+    test_ejercicio_1_1()
