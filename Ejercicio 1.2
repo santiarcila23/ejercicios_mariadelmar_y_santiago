@@ -1,6 +1,10 @@
-#EJERCICIO 1.2 SISTEMA DE USUARIOS Y MEMBRESIAS
+"""
+EJERCICIO 1.2: SISTEMA DE USUARIOS Y MEMBRESÍAS
+"""
+
 from datetime import datetime
 
+# ========== CLASES DEL EJERCICIO 1.2 ==========
 class Usuario:
     def __init__(self, nombre, identificacion, email):
         self.__nombre = nombre
@@ -45,7 +49,6 @@ class Usuario:
             }
             self._historial_prestamos.append(prestamo)
             return True
-        print("❌ Límite de préstamos alcanzado")
         return False
     
     def _validar_limite_prestamos(self):
@@ -71,14 +74,17 @@ class Usuario:
                 activos += 1
         
         return {
-            'usuario': self.__nombre,
+            'nombre': self.__nombre,
             'tipo': self.__class__.__name__,
-            'limite': self.obtener_limite_prestamos(),
+            'limite_prestamos': self.obtener_limite_prestamos(),
             'dias_prestamo': self.calcular_dias_prestamo(),
             'prestamos_activos': activos,
             'total_prestamos': len(self._historial_prestamos),
             'privilegios': self.obtener_privilegios()
         }
+    
+    def get_historial_prestamos(self):
+        return self._historial_prestamos.copy()
     
     def __str__(self):
         return f"{self.__class__.__name__}: {self.__nombre}"
@@ -115,8 +121,7 @@ class Estudiante(Usuario):
         self.__semestre = semestre
     
     def __str__(self):
-        base = super().__str__()
-        return f"{base} | Carrera: {self.__carrera} (Semestre {self.__semestre})"
+        return f"{super().__str__()} | Carrera: {self.__carrera} (Sem {self.__semestre})"
 
 class Profesor(Usuario):
     def __init__(self, nombre, identificacion, email, departamento):
@@ -130,8 +135,8 @@ class Profesor(Usuario):
         return 15
     
     def obtener_privilegios(self):
-        return ["Préstamo extendido", "Acceso a recursos especiales", "Renovación automática", 
-                "Solicitud de adquisiciones"]
+        return ["Préstamo extendido", "Acceso a recursos especiales", 
+                "Renovación automática", "Solicitud de adquisiciones"]
     
     def get_departamento(self):
         return self.__departamento
@@ -142,8 +147,7 @@ class Profesor(Usuario):
         self.__departamento = departamento
     
     def __str__(self):
-        base = super().__str__()
-        return f"{base} | Departamento: {self.__departamento}"
+        return f"{super().__str__()} | Depto: {self.__departamento}"
 
 class Investigador(Usuario):
     def __init__(self, nombre, identificacion, email, area_investigacion):
@@ -158,7 +162,7 @@ class Investigador(Usuario):
     
     def obtener_privilegios(self):
         return ["Préstamo ilimitado virtual", "Acceso a bases de datos premium", 
-                "Renovación automática x3", "Préstamo internacional", "Asistente de investigación"]
+                "Renovación automática x3", "Préstamo internacional"]
     
     def get_area_investigacion(self):
         return self.__area_investigacion
@@ -169,8 +173,7 @@ class Investigador(Usuario):
         self.__area_investigacion = area
     
     def __str__(self):
-        base = super().__str__()
-        return f"{base} | Área: {self.__area_investigacion}"
+        return f"{super().__str__()} | Área: {self.__area_investigacion}"
 
 class UsuarioPublico(Usuario):
     def __init__(self, nombre, identificacion, email):
@@ -188,89 +191,400 @@ class UsuarioPublico(Usuario):
     def __str__(self):
         return super().__str__()
 
-def test_ejercicio_1_2():
-    print("\n" + "=" * 60)
-    print("EJERCICIO 1.2: SISTEMA DE USUARIOS Y MEMBRESÍAS")
-    print("=" * 60)
+# ========== MENÚ INTERACTIVO ==========
+class MenuUsuarios:
+    def __init__(self):
+        self.usuarios = []
+        self.cargar_datos_ejemplo()
     
-    try:
-        usuario_base = Usuario("Test", "123", "test@email.com")
-        print("❌ No debería poder instanciar Usuario base")
-    except NotImplementedError:
-        print("✅ Correcto: No se puede instanciar Usuario base")
+    def cargar_datos_ejemplo(self):
+        """Carga datos de ejemplo para probar"""
+        self.usuarios.append(
+            Estudiante("Ana López", "EST001", "ana@universidad.edu", 
+                      "Ingeniería de Sistemas", 5)
+        )
+        self.usuarios.append(
+            Estudiante("Carlos Ruiz", "EST002", "carlos@universidad.edu", 
+                      "Medicina", 8)
+        )
+        self.usuarios.append(
+            Profesor("Dr. Martínez", "PROF001", "martinez@universidad.edu", 
+                    "Matemáticas")
+        )
+        self.usuarios.append(
+            Profesor("Dra. Gómez", "PROF002", "gomez@universidad.edu", 
+                    "Literatura")
+        )
+        self.usuarios.append(
+            Investigador("Dr. Rodríguez", "INV001", "rodriguez@instituto.edu", 
+                        "Inteligencia Artificial")
+        )
+        self.usuarios.append(
+            UsuarioPublico("Juan Torres", "PUB001", "juan@email.com")
+        )
     
-    usuarios = []
+    def mostrar_menu_principal(self):
+        print("\n" + "="*60)
+        print("👥 SISTEMA DE GESTIÓN DE USUARIOS")
+        print("="*60)
+        print("1. 👤 Crear nuevo usuario")
+        print("2. 👀 Ver todos los usuarios")
+        print("3. 🔍 Buscar usuario por ID")
+        print("4. 📋 Ver reporte de usuario")
+        print("5. 📚 Simular préstamo")
+        print("6. 🎯 Demostrar polimorfismo")
+        print("7. 🔒 Demostrar encapsulamiento")
+        print("8. 📊 Estadísticas del sistema")
+        print("0. 🚪 Salir")
+        print("-"*60)
     
-    # Crear 2 estudiantes
-    est1 = Estudiante("Ana López", "EST001", "ana@universidad.edu", "Ingeniería de Sistemas", 5)
-    est2 = Estudiante("Carlos Ruiz", "EST002", "carlos@universidad.edu", "Medicina", 8)
-    usuarios.append(est1)
-    usuarios.append(est2)
+    def mostrar_menu_creacion(self):
+        print("\n" + "="*40)
+        print("👤 CREAR NUEVO USUARIO")
+        print("="*40)
+        print("1. Estudiante")
+        print("2. Profesor")
+        print("3. Investigador")
+        print("4. Usuario Público")
+        print("0. Volver")
+        print("-"*40)
     
-    # Crear 2 profesores
-    prof1 = Profesor("Dr. Martínez", "PROF001", "martinez@universidad.edu", "Matemáticas")
-    prof2 = Profesor("Dra. Gómez", "PROF002", "gomez@universidad.edu", "Literatura")
-    usuarios.append(prof1)
-    usuarios.append(prof2)
+    def obtener_entrada(self, mensaje, tipo=str):
+        while True:
+            try:
+                entrada = input(f"{mensaje}: ").strip()
+                if tipo == int:
+                    return int(entrada)
+                elif tipo == float:
+                    return float(entrada)
+                return entrada
+            except ValueError:
+                print("❌ Entrada inválida. Intente nuevamente.")
     
-    # Crear 2 investigadores
-    inv1 = Investigador("Dr. Rodríguez", "INV001", "rodriguez@instituto.edu", "Inteligencia Artificial")
-    inv2 = Investigador("Dra. Pérez", "INV002", "perez@instituto.edu", "Genética")
-    usuarios.append(inv1)
-    usuarios.append(inv2)
+    def crear_estudiante(self):
+        print("\n--- CREAR ESTUDIANTE ---")
+        nombre = self.obtener_entrada("Nombre completo")
+        identificacion = self.obtener_entrada("Identificación")
+        email = self.obtener_entrada("Email")
+        carrera = self.obtener_entrada("Carrera")
+        semestre = self.obtener_entrada("Semestre", int)
+        
+        try:
+            estudiante = Estudiante(nombre, identificacion, email, carrera, semestre)
+            self.usuarios.append(estudiante)
+            print(f"✅ Estudiante '{nombre}' creado exitosamente!")
+        except ValueError as e:
+            print(f"❌ Error: {e}")
     
-    # Crear 2 usuarios públicos
-    pub1 = UsuarioPublico("Juan Torres", "PUB001", "juan@email.com")
-    pub2 = UsuarioPublico("María García", "PUB002", "maria@email.com")
-    usuarios.append(pub1)
-    usuarios.append(pub2)
+    def crear_profesor(self):
+        print("\n--- CREAR PROFESOR ---")
+        nombre = self.obtener_entrada("Nombre completo")
+        identificacion = self.obtener_entrada("Identificación")
+        email = self.obtener_entrada("Email")
+        departamento = self.obtener_entrada("Departamento")
+        
+        try:
+            profesor = Profesor(nombre, identificacion, email, departamento)
+            self.usuarios.append(profesor)
+            print(f"✅ Profesor '{nombre}' creado exitosamente!")
+        except ValueError as e:
+            print(f"❌ Error: {e}")
     
-    print("\n👥 USUARIOS CREADOS:")
-    for usuario in usuarios:
-        print(f"- {usuario}")
+    def crear_investigador(self):
+        print("\n--- CREAR INVESTIGADOR ---")
+        nombre = self.obtener_entrada("Nombre completo")
+        identificacion = self.obtener_entrada("Identificación")
+        email = self.obtener_entrada("Email")
+        area = self.obtener_entrada("Área de investigación")
+        
+        try:
+            investigador = Investigador(nombre, identificacion, email, area)
+            self.usuarios.append(investigador)
+            print(f"✅ Investigador '{nombre}' creado exitosamente!")
+        except ValueError as e:
+            print(f"❌ Error: {e}")
     
-    print("\n🔒 ENCAPSULAMIENTO - Acceso controlado:")
-    try:
-        print("Intentando acceder a nombre privado:", est1.__nombre)
-    except AttributeError:
-        print("✅ Atributos privados correctamente protegidos")
+    def crear_usuario_publico(self):
+        print("\n--- CREAR USUARIO PÚBLICO ---")
+        nombre = self.obtener_entrada("Nombre completo")
+        identificacion = self.obtener_entrada("Identificación")
+        email = self.obtener_entrada("Email")
+        
+        try:
+            usuario = UsuarioPublico(nombre, identificacion, email)
+            self.usuarios.append(usuario)
+            print(f"✅ Usuario público '{nombre}' creado exitosamente!")
+        except ValueError as e:
+            print(f"❌ Error: {e}")
     
-    print("\n🔄 POLIMORFISMO - Métodos diferentes por clase:")
-    for usuario in usuarios:
-        print(f"{usuario.get_nombre():20} → Límite: {usuario.obtener_limite_prestamos():2} | Días: {usuario.calcular_dias_prestamo():2}")
+    def ver_usuarios(self):
+        if not self.usuarios:
+            print("\n📭 No hay usuarios registrados.")
+            return
+        
+        print("\n" + "="*80)
+        print("👥 LISTA DE USUARIOS")
+        print("="*80)
+        for i, usuario in enumerate(self.usuarios, 1):
+            print(f"{i}. {usuario}")
+        print("-"*80)
+        print(f"Total: {len(self.usuarios)} usuarios")
     
-    print("\n📊 POLIMORFISMO - Reportes diferentes:")
-    for usuario in usuarios:
-        reporte = usuario.generar_reporte()
-        print(f"\n{usuario.get_nombre()}:")
-        for key, value in reporte.items():
-            if key != 'privilegios':
-                print(f"  {key}: {value}")
+    def buscar_por_id(self):
+        identificacion = self.obtener_entrada("\n🔍 Ingrese identificación a buscar")
+        
+        for usuario in self.usuarios:
+            if usuario.get_identificacion() == identificacion:
+                print("\n✅ USUARIO ENCONTRADO:")
+                print(usuario)
+                return
+        
+        print(f"❌ No se encontró usuario con ID: {identificacion}")
     
-    print("\n📚 Simulando préstamos:")
-    # Simular algunos préstamos
-    from ejercicio_1_1 import LibroFisico
-    libro_prestamo = LibroFisico("Libro de Prueba", "Autor", 2023, "TEST", 100, "Editorial", "bueno")
+    def ver_reporte_usuario(self):
+        if not self.usuarios:
+            print("\n📭 No hay usuarios para reportes.")
+            return
+        
+        self.ver_usuarios()
+        try:
+            opcion = self.obtener_entrada("\n📋 Ingrese número de usuario para reporte", int) - 1
+            if 0 <= opcion < len(self.usuarios):
+                usuario = self.usuarios[opcion]
+                reporte = usuario.generar_reporte()
+                
+                print("\n" + "="*60)
+                print(f"📄 REPORTE DE {usuario.get_nombre().upper()}")
+                print("="*60)
+                for clave, valor in reporte.items():
+                    if clave == 'privilegios':
+                        print(f"\n{clgue.replace('_', ' ').title()}:")
+                        for privilegio in valor:
+                            print(f"  • {privilegio}")
+                    else:
+                        print(f"{clave.replace('_', ' ').title()}: {valor}")
+        except (ValueError, IndexError):
+            print("❌ Opción inválida")
     
-    est1.agregar_prestamo(libro_prestamo)
-    est1.agregar_prestamo(libro_prestamo)
-    est1.agregar_prestamo(libro_prestamo)
-    print(f"Estudiante intenta 4to préstamo: {est1.agregar_prestamo(libro_prestamo)} (debe ser False)")
+    def simular_prestamo(self):
+        if not self.usuarios:
+            print("\n📭 No hay usuarios para préstamos.")
+            return
+        
+        # Importar Material de ejemplo del Ejercicio 1.1
+        try:
+            from ejercicio_1_1_menu import LibroFisico
+            libro = LibroFisico("Libro de Préstamo", "Autor", 2023, 
+                               "TEST001", 200, "Editorial", "bueno")
+        except ImportError:
+            print("⚠️  No se pudo importar MaterialBibliografico")
+            print("   Ejecute primero el Ejercicio 1.1 o cree un material manual")
+            return
+        
+        self.ver_usuarios()
+        try:
+            opcion = self.obtener_entrada("\n📚 Seleccione usuario para préstamo", int) - 1
+            if 0 <= opcion < len(self.usuarios):
+                usuario = self.usuarios[opcion]
+                
+                print(f"\n💼 Usuario seleccionado: {usuario.get_nombre()}")
+                print(f"   Límite de préstamos: {usuario.obtener_limite_prestamos()}")
+                print(f"   Días de préstamo: {usuario.calcular_dias_prestamo()}")
+                
+                # Intentar hacer préstamo
+                if usuario.agregar_prestamo(libro):
+                    print(f"✅ Préstamo exitoso!")
+                    print(f"   Material: {libro.get_titulo()}")
+                    
+                    # Verificar límite
+                    for i in range(usuario.obtener_limite_prestamos()):
+                        if not usuario.agregar_prestamo(libro):
+                            print(f"❌ Límite alcanzado en préstamo {i+2}")
+                            break
+                else:
+                    print("❌ No se pudo realizar el préstamo")
+                    
+        except (ValueError, IndexError):
+            print("❌ Opción inválida")
     
-    prof1.agregar_prestamo(libro_prestamo)
-    prof1.agregar_prestamo(libro_prestamo)
-    prof1.agregar_prestamo(libro_prestamo)
-    prof1.agregar_prestamo(libro_prestamo)
-    prof1.agregar_prestamo(libro_prestamo)
-    print(f"Profesor intenta 6to préstamo: {prof1.agregar_prestamo(libro_prestamo)} (debe ser False)")
+    def demostrar_polimorfismo(self):
+        if not self.usuarios:
+            print("\n📭 No hay usuarios para demostrar.")
+            return
+        
+        print("\n" + "="*60)
+        print("🎯 DEMOSTRACIÓN DE POLIMORFISMO")
+        print("="*60)
+        print("Mismo método obtener_privilegios(), diferentes resultados:")
+        print("-"*60)
+        
+        for usuario in self.usuarios:
+            privilegios = usuario.obtener_privilegios()
+            print(f"\n{usuario.__class__.__name__}:")
+            for p in privilegios[:3]:  # Mostrar solo 3 privilegios
+                print(f"  • {p}")
+            if len(privilegios) > 3:
+                print(f"  • ... y {len(privilegios)-3} más")
+        
+        print("\n" + "-"*60)
+        print("Mismo método generar_reporte(), estructura diferente:")
+        print("-"*60)
+        
+        for usuario in self.usuarios[:2]:  # Mostrar solo 2 ejemplos
+            reporte = usuario.generar_reporte()
+            print(f"\n{usuario.__class__.__name__}:")
+            print(f"  Límite: {reporte['limite_prestamos']} | Días: {reporte['dias_prestamo']}")
     
-    print("\n💼 PRIVILEGIOS POR TIPO (POLIMORFISMO):")
-    for usuario in usuarios:
-        privilegios = usuario.obtener_privilegios()
-        print(f"\n{usuario.__class__.__name__}:")
-        for p in privilegios:
-            print(f"  - {p}")
+    def demostrar_encapsulamiento(self):
+        print("\n" + "="*60)
+        print("🔒 DEMOSTRACIÓN DE ENCAPSULAMIENTO")
+        print("="*60)
+        
+        if not self.usuarios:
+            print("❌ No hay usuarios para demostrar")
+            return
+        
+        usuario = self.usuarios[0]
+        
+        print("1. Intentando acceder a atributos privados directamente:")
+        print("   usuario.__nombre → Generará AttributeError")
+        
+        try:
+            print(f"   Intento: {usuario.__nombre}")
+        except AttributeError:
+            print("   ✅ CORRECTO: AttributeError al acceder a __nombre")
+        
+        print("\n2. Usando getters y setters con validación:")
+        print(f"   Email actual: {usuario.get_email()}")
+        
+        # Intentar asignar email inválido
+        try:
+            usuario.set_email("email-invalido")
+        except ValueError as e:
+            print(f"   ❌ Setter bloquea email inválido: {e}")
+        
+        # Asignar email válido
+        try:
+            usuario.set_email("nuevo@email.com")
+            print(f"   ✅ Setter acepta email válido: {usuario.get_email()}")
+        except ValueError as e:
+            print(f"   ❌ Error: {e}")
+        
+        print("\n3. Historial protegido (solo lectura):")
+        historial = usuario.get_historial_prestamos()
+        print(f"   Historial obtenido como copia: {len(historial)} préstamos")
+        print("   Modificar la copia no afecta el original")
+    
+    def mostrar_estadisticas(self):
+        if not self.usuarios:
+            print("\n📭 No hay usuarios para estadísticas.")
+            return
+        
+        print("\n" + "="*60)
+        print("📊 ESTADÍSTICAS DEL SISTEMA DE USUARIOS")
+        print("="*60)
+        
+        # Contar por tipo
+        tipos = {}
+        total_prestamos = 0
+        
+        for usuario in self.usuarios:
+            tipo = usuario.__class__.__name__
+            tipos[tipo] = tipos.get(tipo, 0) + 1
+            total_prestamos += len(usuario.get_historial_prestamos())
+        
+        print("📈 Distribución por tipo de usuario:")
+        for tipo, cantidad in tipos.items():
+            print(f"   {tipo}: {cantidad} usuarios")
+        
+        print(f"\n👥 Total de usuarios: {len(self.usuarios)}")
+        print(f"📚 Total de préstamos simulados: {total_prestamos}")
+        
+        # Calcular promedios
+        if self.usuarios:
+            promedios = {}
+            for tipo in tipos.keys():
+                usuarios_tipo = [u for u in self.usuarios if u.__class__.__name__ == tipo]
+                if usuarios_tipo:
+                    prestamos_tipo = sum(len(u.get_historial_prestamos()) for u in usuarios_tipo)
+                    promedios[tipo] = prestamos_tipo / len(usuarios_tipo)
+            
+            print("\n📊 Promedio de préstamos por usuario:")
+            for tipo, promedio in promedios.items():
+                print(f"   {tipo}: {promedio:.1f} préstamos/usuario")
+    
+    def ejecutar(self):
+        while True:
+            self.mostrar_menu_principal()
+            opcion = self.obtener_entrada("Seleccione una opción", int)
+            
+            if opcion == 0:
+                print("\n👋 ¡Gracias por usar el sistema de usuarios!")
+                break
+            
+            elif opcion == 1:
+                while True:
+                    self.mostrar_menu_creacion()
+                    sub_opcion = self.obtener_entrada("Seleccione tipo de usuario", int)
+                    
+                    if sub_opcion == 0:
+                        break
+                    elif sub_opcion == 1:
+                        self.crear_estudiante()
+                    elif sub_opcion == 2:
+                        self.crear_profesor()
+                    elif sub_opcion == 3:
+                        self.crear_investigador()
+                    elif sub_opcion == 4:
+                        self.crear_usuario_publico()
+                    else:
+                        print("❌ Opción inválida")
+            
+            elif opcion == 2:
+                self.ver_usuarios()
+            
+            elif opcion == 3:
+                self.buscar_por_id()
+            
+            elif opcion == 4:
+                self.ver_reporte_usuario()
+            
+            elif opcion == 5:
+                self.simular_prestamo()
+            
+            elif opcion == 6:
+                self.demostrar_polimorfismo()
+            
+            elif opcion == 7:
+                self.demostrar_encapsulamiento()
+            
+            elif opcion == 8:
+                self.mostrar_estadisticas()
+            
+            else:
+                print("❌ Opción inválida")
+            
+            if opcion != 0:
+                input("\n⏎ Presione Enter para continuar...")
 
+# ========== PROGRAMA PRINCIPAL ==========
 if __name__ == "__main__":
-    test_ejercicio_1_1()
-    test_ejercicio_1_2()
+    print("="*60)
+    print("EJERCICIO 1.2: SISTEMA DE USUARIOS Y MEMBRESÍAS")
+    print("="*60)
+    
+    # Demostrar que no se puede instanciar clase abstracta
+    print("\n🔍 Demostrando ABSTRACCIÓN:")
+    try:
+        # Intentar crear objeto de clase abstracta
+        usuario = Usuario("Test", "123", "test@email.com")
+        print("❌ ERROR: No debería poder instanciarse")
+    except NotImplementedError as e:
+        print(f"✅ CORRECTO: No se puede instanciar Usuario base")
+        print(f"   Error: {e}")
+    
+    input("\n⏎ Presione Enter para iniciar el sistema interactivo...")
+    
+    # Iniciar menú interactivo
+    sistema = MenuUsuarios()
+    sistema.ejecutar()
