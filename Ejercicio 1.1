@@ -1,7 +1,9 @@
-#EJERCICIO 1.1 GESTION DE MATERIALES BIBLIOGRAFICOS
+"""
+EJERCICIO 1.1: GESTIÓN DE MATERIALES BIBLIOGRÁFICOS
+"""
+
 from datetime import datetime
 
-# Clase base - ENCAPSULAMIENTO
 class MaterialBibliografico:
     def __init__(self, titulo, autor, año_publicacion, codigo_unico):
         self.__titulo = titulo
@@ -50,7 +52,6 @@ class MaterialBibliografico:
     def __str__(self):
         return f"{self.obtener_tipo_material()}: {self.__titulo} - {self.__autor} ({self.__año_publicacion})"
 
-# HERENCIA - LibroFisico
 class LibroFisico(MaterialBibliografico):
     def __init__(self, titulo, autor, año_publicacion, codigo_unico, num_paginas, editorial, estado_fisico):
         super().__init__(titulo, autor, año_publicacion, codigo_unico)
@@ -90,10 +91,8 @@ class LibroFisico(MaterialBibliografico):
         self.__estado_fisico = estado
     
     def __str__(self):
-        base = super().__str__()
-        return f"{base} | Páginas: {self.__num_paginas} | Editorial: {self.__editorial}"
+        return f"{super().__str__()} | Páginas: {self.__num_paginas} | Editorial: {self.__editorial}"
 
-# HERENCIA - LibroElectronico
 class LibroElectronico(MaterialBibliografico):
     def __init__(self, titulo, autor, año_publicacion, codigo_unico, tamaño_mb, formato, url_descarga):
         super().__init__(titulo, autor, año_publicacion, codigo_unico)
@@ -133,10 +132,8 @@ class LibroElectronico(MaterialBibliografico):
         self.__url_descarga = url
     
     def __str__(self):
-        base = super().__str__()
-        return f"{base} | Formato: {self.__formato} | Tamaño: {self.__tamaño_mb}MB"
+        return f"{super().__str__()} | Formato: {self.__formato} | Tamaño: {self.__tamaño_mb}MB"
 
-# HERENCIA - Revista
 class Revista(MaterialBibliografico):
     def __init__(self, titulo, autor, año_publicacion, codigo_unico, numero_edicion, mes_publicacion):
         super().__init__(titulo, autor, año_publicacion, codigo_unico)
@@ -168,10 +165,8 @@ class Revista(MaterialBibliografico):
         self.__mes_publicacion = mes
     
     def __str__(self):
-        base = super().__str__()
-        return f"{base} | Edición: {self.__numero_edicion} | Mes: {self.__mes_publicacion}"
+        return f"{super().__str__()} | Edición: {self.__numero_edicion} | Mes: {self.__mes_publicacion}"
 
-# HERENCIA - Audiolibro
 class Audiolibro(MaterialBibliografico):
     def __init__(self, titulo, autor, año_publicacion, codigo_unico, duracion_minutos, narrador, formato_audio):
         super().__init__(titulo, autor, año_publicacion, codigo_unico)
@@ -211,82 +206,322 @@ class Audiolibro(MaterialBibliografico):
         self.__formato_audio = formato
     
     def __str__(self):
-        base = super().__str__()
-        return f"{base} | Duración: {self.__duracion_minutos}min | Narrador: {self.__narrador}"
+        return f"{super().__str__()} | Duración: {self.__duracion_minutos}min | Narrador: {self.__narrador}"
 
-# PROGRAMA DE PRUEBA
-def test_ejercicio_1_1():
-    print("=" * 60)
-    print("EJERCICIO 1.1: GESTIÓN DE MATERIALES BIBLIOGRÁFICOS")
-    print("=" * 60)
+# ========== MENÚ INTERACTIVO ==========
+class MenuMateriales:
+    def __init__(self):
+        self.materiales = []
+        self.cargar_datos_ejemplo()
     
-    try:
-        material = MaterialBibliografico("Test", "Autor", 2023, "ABC123")
-        print("❌ Debería fallar al crear objeto de clase base")
-    except NotImplementedError as e:
-        print("✅ No se puede usar métodos de clase base:", e)
+    def cargar_datos_ejemplo(self):
+        """Carga datos de ejemplo para probar"""
+        self.materiales.append(
+            LibroFisico("Cien Años de Soledad", "Gabriel García Márquez", 
+                        1967, "LIB001", 471, "Sudamericana", "bueno")
+        )
+        self.materiales.append(
+            LibroElectronico("Python Crash Course", "Eric Matthes", 
+                             2015, "ELE001", 5.2, "PDF", "https://descarga.com/python.pdf")
+        )
+        self.materiales.append(
+            Revista("National Geographic", "Varios Autores", 
+                    2023, "REV001", 245, "Octubre")
+        )
+        self.materiales.append(
+            Audiolibro("El Principito", "Antoine de Saint-Exupéry", 
+                       1943, "AUD001", 120, "Luis Piedrahita", "MP3")
+        )
     
-    materiales = []
+    def mostrar_menu_principal(self):
+        print("\n" + "="*60)
+        print("📚 SISTEMA DE GESTIÓN DE MATERIALES BIBLIOGRÁFICOS")
+        print("="*60)
+        print("1. 📖 Crear nuevo material")
+        print("2. 👀 Ver todos los materiales")
+        print("3. 🔍 Buscar material por código")
+        print("4. 💰 Calcular costo de préstamo")
+        print("5. 🎯 Demostrar polimorfismo")
+        print("6. 🔒 Demostrar encapsulamiento")
+        print("7. 📊 Estadísticas")
+        print("0. 🚪 Salir")
+        print("-"*60)
     
-    # Crear 2 Libros Físicos
-    libro1 = LibroFisico("Cien Años de Soledad", "Gabriel García Márquez", 
-                         1967, "LIB001", 471, "Sudamericana", "bueno")
-    libro2 = LibroFisico("Don Quijote", "Miguel de Cervantes", 
-                         1605, "LIB002", 863, "Francisco de Robles", "regular")
-    materiales.append(libro1)
-    materiales.append(libro2)
+    def mostrar_menu_creacion(self):
+        print("\n" + "="*40)
+        print("📝 CREAR NUEVO MATERIAL")
+        print("="*40)
+        print("1. Libro Físico")
+        print("2. Libro Electrónico")
+        print("3. Revista")
+        print("4. Audiolibro")
+        print("0. Volver")
+        print("-"*40)
     
-    # Crear 2 Libros Electrónicos
-    ebook1 = LibroElectronico("Python Crash Course", "Eric Matthes", 
-                              2015, "ELE001", 5.2, "PDF", "https://descarga.com/python.pdf")
-    ebook2 = LibroElectronico("Clean Code", "Robert Martin", 
-                              2008, "ELE002", 3.8, "EPUB", "https://descarga.com/cleancode.epub")
-    materiales.append(ebook1)
-    materiales.append(ebook2)
+    def obtener_entrada(self, mensaje, tipo=str):
+        while True:
+            try:
+                entrada = input(f"{mensaje}: ").strip()
+                if tipo == int:
+                    return int(entrada)
+                elif tipo == float:
+                    return float(entrada)
+                return entrada
+            except ValueError:
+                print("❌ Entrada inválida. Intente nuevamente.")
     
-    # Crear 2 Revistas
-    revista1 = Revista("National Geographic", "Varios Autores", 
-                       2023, "REV001", 245, "Octubre")
-    revista2 = Revista("Scientific American", "Varios Autores", 
-                       2023, "REV002", 321, "Noviembre")
-    materiales.append(revista1)
-    materiales.append(revista2)
+    def crear_libro_fisico(self):
+        print("\n--- CREAR LIBRO FÍSICO ---")
+        titulo = self.obtener_entrada("Título")
+        autor = self.obtener_entrada("Autor")
+        año = self.obtener_entrada("Año publicación", int)
+        codigo = self.obtener_entrada("Código único")
+        paginas = self.obtener_entrada("Número de páginas", int)
+        editorial = self.obtener_entrada("Editorial")
+        estado = self.obtener_entrada("Estado (excelente/bueno/regular/malo)")
+        
+        try:
+            libro = LibroFisico(titulo, autor, año, codigo, paginas, editorial, estado)
+            self.materiales.append(libro)
+            print(f"✅ Libro físico '{titulo}' creado exitosamente!")
+        except ValueError as e:
+            print(f"❌ Error: {e}")
     
-    # Crear 2 Audiolibros
-    audio1 = Audiolibro("El Principito", "Antoine de Saint-Exupéry", 
-                        1943, "AUD001", 120, "Luis Piedrahita", "MP3")
-    audio2 = Audiolibro("1984", "George Orwell", 
-                        1949, "AUD002", 300, "Juan Carlos Pérez", "MP3")
-    materiales.append(audio1)
-    materiales.append(audio2)
+    def crear_libro_electronico(self):
+        print("\n--- CREAR LIBRO ELECTRÓNICO ---")
+        titulo = self.obtener_entrada("Título")
+        autor = self.obtener_entrada("Autor")
+        año = self.obtener_entrada("Año publicación", int)
+        codigo = self.obtener_entrada("Código único")
+        tamaño = self.obtener_entrada("Tamaño en MB", float)
+        formato = self.obtener_entrada("Formato (PDF/EPUB/MOBI/AZW)")
+        url = self.obtener_entrada("URL de descarga")
+        
+        try:
+            libro = LibroElectronico(titulo, autor, año, codigo, tamaño, formato, url)
+            self.materiales.append(libro)
+            print(f"✅ Libro electrónico '{titulo}' creado exitosamente!")
+        except ValueError as e:
+            print(f"❌ Error: {e}")
     
-    print("\n📚 MATERIALES CREADOS:")
-    for i, material in enumerate(materiales, 1):
-        print(f"{i}. {material}")
+    def crear_revista(self):
+        print("\n--- CREAR REVISTA ---")
+        titulo = self.obtener_entrada("Título")
+        autor = self.obtener_entrada("Autor")
+        año = self.obtener_entrada("Año publicación", int)
+        codigo = self.obtener_entrada("Código único")
+        edicion = self.obtener_entrada("Número de edición", int)
+        mes = self.obtener_entrada("Mes de publicación")
+        
+        try:
+            revista = Revista(titulo, autor, año, codigo, edicion, mes)
+            self.materiales.append(revista)
+            print(f"✅ Revista '{titulo}' creada exitosamente!")
+        except ValueError as e:
+            print(f"❌ Error: {e}")
     
-    print("\n💰 POLIMORFISMO - Cálculo de préstamos diferentes:")
-    for material in materiales:
-        tipo = material.obtener_tipo_material()
-        costo = material.calcular_valor_prestamo(3)
-        print(f"{tipo:20} → ${costo:.2f} por 3 días")
+    def crear_audiolibro(self):
+        print("\n--- CREAR AUDIOLIBRO ---")
+        titulo = self.obtener_entrada("Título")
+        autor = self.obtener_entrada("Autor")
+        año = self.obtener_entrada("Año publicación", int)
+        codigo = self.obtener_entrada("Código único")
+        duracion = self.obtener_entrada("Duración en minutos", float)
+        narrador = self.obtener_entrada("Narrador")
+        formato = self.obtener_entrada("Formato (MP3/WAV/AAC/FLAC)")
+        
+        try:
+            audio = Audiolibro(titulo, autor, año, codigo, duracion, narrador, formato)
+            self.materiales.append(audio)
+            print(f"✅ Audiolibro '{titulo}' creado exitosamente!")
+        except ValueError as e:
+            print(f"❌ Error: {e}")
     
-    print("\n🎯 ABSTRACCIÓN - Usando lista polimórfica:")
-    total = 0
-    for material in materiales:
-        total += material.calcular_valor_prestamo(7)
+    def ver_materiales(self):
+        if not self.materiales:
+            print("\n📭 No hay materiales registrados.")
+            return
+        
+        print("\n" + "="*80)
+        print("📚 LISTA DE MATERIALES BIBLIOGRÁFICOS")
+        print("="*80)
+        for i, material in enumerate(self.materiales, 1):
+            print(f"{i}. {material}")
+        print("-"*80)
+        print(f"Total: {len(self.materiales)} materiales")
     
-    print(f"💵 Costo total para 7 días de todos los materiales: ${total:.2f}")
+    def buscar_por_codigo(self):
+        codigo = self.obtener_entrada("\n🔍 Ingrese código único a buscar")
+        
+        for material in self.materiales:
+            if material.get_codigo_unico() == codigo:
+                print("\n✅ MATERIAL ENCONTRADO:")
+                print(material)
+                return
+        
+        print(f"❌ No se encontró material con código: {codigo}")
     
-    print("\n🔒 ENCAPSULAMIENTO - Acceso controlado:")
-    try:
-        # Esto debería fallar
-        print("Intentando acceder a título privado:", libro1.__titulo)
-    except AttributeError:
-        print("✅ Atributo privado correctamente protegido")
+    def calcular_costo_prestamo(self):
+        if not self.materiales:
+            print("\n📭 No hay materiales para calcular.")
+            return
+        
+        self.ver_materiales()
+        try:
+            opcion = self.obtener_entrada("\n📅 Ingrese número de material", int) - 1
+            if 0 <= opcion < len(self.materiales):
+                dias = self.obtener_entrada("Ingrese número de días", int)
+                material = self.materiales[opcion]
+                costo = material.calcular_valor_prestamo(dias)
+                print(f"\n💰 COSTO DE PRÉSTAMO:")
+                print(f"Material: {material.get_titulo()}")
+                print(f"Días: {dias}")
+                print(f"Costo: ${costo:.2f}")
+                print(f"Tipo: {material.obtener_tipo_material()}")
+        except (ValueError, IndexError):
+            print("❌ Opción inválida")
     
-    print("\n🔧 Usando getters y setters:")
-    libro1.set_titulo("Cien Años de Soledad (Edición Especial)")
-    print("Nuevo título:", libro1.get_titulo())
+    def demostrar_polimorfismo(self):
+        if not self.materiales:
+            print("\n📭 No hay materiales para demostrar.")
+            return
+        
+        print("\n" + "="*60)
+        print("🎯 DEMOSTRACIÓN DE POLIMORFISMO")
+        print("="*60)
+        print("Mismo método calcular_valor_prestamo(), diferentes resultados:")
+        print("-"*60)
+        
+        dias = 5
+        total = 0
+        
+        for material in self.materiales:
+            costo = material.calcular_valor_prestamo(dias)
+            total += costo
+            print(f"{material.obtener_tipo_material():20} → ${costo:.2f} (${costo/dias:.2f}/día)")
+        
+        print("-"*60)
+        print(f"Total para {dias} días: ${total:.2f}")
+    
+    def demostrar_encapsulamiento(self):
+        print("\n" + "="*60)
+        print("🔒 DEMOSTRACIÓN DE ENCAPSULAMIENTO")
+        print("="*60)
+        print("1. Intentando acceder a atributos privados directamente:")
+        print("   material.__titulo → Generará AttributeError")
+        print("\n2. Usando getters y setters con validación:")
+        
+        if self.materiales:
+            material = self.materiales[0]
+            print(f"   Título actual: {material.get_titulo()}")
+            
+            # Intentar asignar valor inválido
+            try:
+                material.set_titulo("")  # Título vacío
+            except ValueError as e:
+                print(f"   ❌ Setter bloquea título vacío: {e}")
+            
+            # Asignar valor válido
+            try:
+                material.set_titulo("Nuevo Título Válido")
+                print(f"   ✅ Setter acepta título válido: {material.get_titulo()}")
+            except ValueError as e:
+                print(f"   ❌ Error: {e}")
+    
+    def mostrar_estadisticas(self):
+        if not self.materiales:
+            print("\n📭 No hay materiales para estadísticas.")
+            return
+        
+        print("\n" + "="*60)
+        print("📊 ESTADÍSTICAS DEL SISTEMA")
+        print("="*60)
+        
+        # Contar por tipo
+        tipos = {}
+        for material in self.materiales:
+            tipo = material.obtener_tipo_material()
+            tipos[tipo] = tipos.get(tipo, 0) + 1
+        
+        print("📈 Distribución por tipo:")
+        for tipo, cantidad in tipos.items():
+            print(f"   {tipo}: {cantidad}")
+        
+        print(f"\n📦 Total de materiales: {len(self.materiales)}")
+        
+        # Calcular valor promedio de préstamo por 7 días
+        total_7_dias = sum(m.calcular_valor_prestamo(7) for m in self.materiales)
+        print(f"💰 Valor total de préstamos (7 días): ${total_7_dias:.2f}")
+    
+    def ejecutar(self):
+        while True:
+            self.mostrar_menu_principal()
+            opcion = self.obtener_entrada("Seleccione una opción", int)
+            
+            if opcion == 0:
+                print("\n👋 ¡Gracias por usar el sistema!")
+                break
+            
+            elif opcion == 1:
+                while True:
+                    self.mostrar_menu_creacion()
+                    sub_opcion = self.obtener_entrada("Seleccione tipo de material", int)
+                    
+                    if sub_opcion == 0:
+                        break
+                    elif sub_opcion == 1:
+                        self.crear_libro_fisico()
+                    elif sub_opcion == 2:
+                        self.crear_libro_electronico()
+                    elif sub_opcion == 3:
+                        self.crear_revista()
+                    elif sub_opcion == 4:
+                        self.crear_audiolibro()
+                    else:
+                        print("❌ Opción inválida")
+            
+            elif opcion == 2:
+                self.ver_materiales()
+            
+            elif opcion == 3:
+                self.buscar_por_codigo()
+            
+            elif opcion == 4:
+                self.calcular_costo_prestamo()
+            
+            elif opcion == 5:
+                self.demostrar_polimorfismo()
+            
+            elif opcion == 6:
+                self.demostrar_encapsulamiento()
+            
+            elif opcion == 7:
+                self.mostrar_estadisticas()
+            
+            else:
+                print("❌ Opción inválida")
+            
+            if opcion != 0:
+                input("\n⏎ Presione Enter para continuar...")
 
+# ========== PROGRAMA PRINCIPAL ==========
 if __name__ == "__main__":
-    test_ejercicio_1_1()
+    print("="*60)
+    print("EJERCICIO 1.1: GESTIÓN DE MATERIALES BIBLIOGRÁFICOS")
+    print("="*60)
+    
+    # Demostrar que no se puede instanciar clase abstracta
+    print("\n🔍 Demostrando ABSTRACCIÓN:")
+    try:
+        # Intentar crear objeto de clase abstracta
+        material = MaterialBibliografico("Test", "Autor", 2023, "ABC123")
+        print("❌ ERROR: No debería poder instanciarse")
+    except NotImplementedError as e:
+        print(f"✅ CORRECTO: No se puede instanciar MaterialBibliografico")
+        print(f"   Error: {e}")
+    
+    input("\n⏎ Presione Enter para iniciar el sistema interactivo...")
+    
+    # Iniciar menú interactivo
+    sistema = MenuMateriales()
+    sistema.ejecutar()
