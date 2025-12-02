@@ -1,0 +1,304 @@
+#EJERCICIO 1.3 - SISTEMA DE PRÉSTAMOS Y DEVOLUCIONES
+from datetime import datetime, timedelta
+
+class Transaccion:
+    def __init__(self, id_transaccion, usuario, material):
+        self.__id_transaccion = id_transaccion
+        self.__fecha = datetime.now()
+        self.__usuario = usuario
+        self.__material = material
+        self._estado = "pendiente"
+    
+    def get_id_transaccion(self):
+        return self.__id_transaccion
+    
+    def get_fecha(self):
+        return self.__fecha
+    
+    def get_usuario(self):
+        return self.__usuario
+    
+    def get_material(self):
+        return self.__material
+    
+    def get_estado(self):
+        return self._estado
+    
+    def set_estado(self, estado):
+        estados_validos = ["pendiente", "aprobada", "rechazada", "completada"]
+        if estado not in estados_validos:
+            raise ValueError("Estado inválido")
+        self._estado = estado
+    
+    def procesar_transaccion(self):
+        raise NotImplementedError("Método debe implementarse")
+    
+    def calcular_costo(self):
+        raise NotImplementedError("Método debe implementarse")
+    
+    def __str__(self):
+        return f"Transacción {self.__id_transaccion} - {self._estado}"
+
+class Prestamo(Transaccion):
+    def __init__(self, id_transaccion, usuario, material, fecha_inicio=None):
+        super().__init__(id_transaccion, usuario, material)
+        self.__fecha_inicio = fecha_inicio if fecha_inicio else datetime.now()
+        self.__fecha_limite = self.__fecha_inicio + timedelta(days=usuario.calcular_dias_prestamo())
+        self.__fecha_devolucion_real = None
+        self.__dias_retraso = 0
+    
+    def procesar_transaccion(self):
+        if self._estado == "pendiente":
+            if self.__usuario.agregar_prestamo(self.__material):
+                self.set_estado("aprobada")
+                return True
+            else:
+                self.set_estado("rechazada")
+                return False
+        return False
+    
+    def calcular_costo(self):
+        dias = (self.__fecha_limite - self.__fecha_inicio).days
+        costo_base = self.__material.calcular_valor_prestamo(dias)
+        multa = self._calcular_multa()
+        return costo_base + multa
+    
+    def _calcular_multa(self):
+        if self.__fecha_devolucion_real and self.__fecha_devolucion_real > self.__fecha_limite:
+            self.__dias_retraso = (self.__fecha_devolucion_real - self.__fecha_limite).days
+            return self.__dias_retraso * 0.50
+        return 0
+    
+    def registrar_devolucion(self, fecha_devolucion=None):
+        if not fecha_devolucion:
+            fecha_devolucion = datetime.now()
+        
+        self.__fecha_devolucion_real = fecha_devolucion
+        self.set_estado("completada")
+        
+        # Marcar préstamo como devuelto en el usuario
+        for prestamo in self.__usuario.get_historial_prestamos():
+            if prestamo['material'] == self.__material and not prestamo['devuelto']:
+                prestamo['devuelto'] = True
+                break
+        
+        multa = self._calcular_multa()
+        if multa > 0:
+            print(f"⚠️ Multa por retraso: ${multa:.2f} ({self.__dias_retraso} días)")
+        
+        return multa
+    
+    def get_fecha_inicio(self):
+        return self.__fecha_inicio
+    
+    def get_fecha_limite(self):
+        return self.__fecha_limite
+    
+    def get_fecha_devolucion_real(self):
+        return self.__fecha_devolucion_real
+    
+    def get_dias_retraso(self):
+        return self.__dias_retraso
+    
+    def __str__(self):
+        base = super().__str__()
+        return f"{base} | Préstamo de {self.__material.get_titulo()[:20]}..."
+
+class Renovacion(Transaccion):
+    def __init__(self, id_transaccion, usuario, material, prestamo_original):
+        super().__init__(id_transaccion, usuario, material)
+        self.__prestamo_original = prestamo_original
+        self.__nueva_fecha_limite = prestamo_original.get_fecha_limite() + timedelta(days=7)
+    
+    def procesar_transaccion(self):
+        if self._estado == "pendiente":
+            # Verificar que no haya multas pendientes
+            if self.__prestamo_original.get_dias_retraso() > 0:
+                print("❌ No se puede renovar con multa pendiente")
+                self.set_estado("rechazada")
+                return False
+            
+            # Actualizar fecha límite del préstamo original
+            self.__prestamo_original._Prestamo__fecha_limite = self.__nueva_fecha_limite
+            self.set_estado("aprobada")
+            return True
+        return False
+    
+    def calcular_costo(self):
+        # 50% de descuento sobre el costo original
+        costo_original = self.__prestamo_original.calcular_costo()
+        return costo_original * 0.50
+    
+    def get_prestamo_original(self):
+        return self.__prestamo_original
+    
+    def get_nueva_fecha_limite(self):
+        return self.__nueva_fecha_limite
+    
+    def __str__(self):
+        base = super().__str__()
+        return f"{base} | Renovación hasta {self.__nueva_fecha_limite.strftime('%d/%m/%Y')}"
+
+class Reserva(Transaccion):
+    def __init__(self, id_transaccion, usuario, material, fecha_reserva=None):
+        super().__init__(id_transaccion, usuario, material)
+        self.__fecha_reserva = fecha_reserva if fecha_reserva else datetime.now()
+        self.__fecha_retiro_estimada = self.__fecha_reserva + timedelta(days=2)
+        self.__activa = True
+    
+    def procesar_transaccion(self):
+        if self._estado == "pendiente":
+            self.set_estado("aprobada")
+            return True
+        return False
+    
+    def calcular_costo(self):
+        return 0  # Las reservas son gratuitas
+    
+    def cancelar_reserva(self):
+        self.__activa = False
+        self.set_estado("cancelada")
+    
+    def get_fecha_reserva(self):
+        return self.__fecha_reserva
+    
+    def get_fecha_retiro_estimada(self):
+        return self.__fecha_retiro_estimada
+    
+    def esta_activa(self):
+        return self.__activa
+    
+    def __str__(self):
+        base = super().__str__()
+        estado = "activa" if self.__activa else "cancelada"
+        return f"{base} | Reserva {estado} para {self.__fecha_retiro_estimada.strftime('%d/%m/%Y')}"
+
+class Devolucion(Transaccion):
+    def __init__(self, id_transaccion, usuario, material, prestamo_asociado):
+        super().__init__(id_transaccion, usuario, material)
+        self.__prestamo_asociado = prestamo_asociado
+        self.__fecha_devolucion = datetime.now()
+        self.__estado_material = "bueno"
+        self.__tiene_multa = False
+    
+    def procesar_transaccion(self):
+        if self._estado == "pendiente":
+            multa = self.__prestamo_asociado.registrar_devolucion(self.__fecha_devolucion)
+            self.__tiene_multa = multa > 0
+            self.set_estado("completada")
+            return True
+        return False
+    
+    def calcular_costo(self):
+        if self.__tiene_multa:
+            return self.__prestamo_asociado.get_dias_retraso() * 0.50
+        return 0
+    
+    def get_fecha_devolucion(self):
+        return self.__fecha_devolucion
+    
+    def get_estado_material(self):
+        return self.__estado_material
+    
+    def set_estado_material(self, estado):
+        estados_validos = ["excelente", "bueno", "regular", "malo", "dañado"]
+        if estado not in estados_validos:
+            raise ValueError("Estado del material inválido")
+        self.__estado_material = estado
+    
+    def tiene_multa(self):
+        return self.__tiene_multa
+    
+    def __str__(self):
+        base = super().__str__()
+        multa = "con multa" if self.__tiene_multa else "sin multa"
+        return f"{base} | Devolución {multa} - Estado: {self.__estado_material}"
+
+def test_ejercicio_1_3():
+    print("\n" + "=" * 60)
+    print("EJERCICIO 1.3: SISTEMA DE PRÉSTAMOS Y DEVOLUCIONES")
+    print("=" * 60)
+    
+    # Importar clases necesarias de ejercicios anteriores
+    from ejercicio_1_1 import LibroFisico
+    from ejercicio_1_2 import Estudiante, Profesor
+    
+    # Crear materiales y usuarios de prueba
+    libro = LibroFisico("Python Avanzado", "Autor Python", 2023, "PYT001", 350, "Editorial Tec", "excelente")
+    estudiante = Estudiante("Ana Estudiante", "EST123", "ana@edu.com", "Informática", 6)
+    profesor = Profesor("Dr. Profesor", "PROF456", "profesor@edu.com", "Ciencias")
+    
+    print("\n📋 CICLO COMPLETO DE PRÉSTAMO:")
+    print("-" * 40)
+    
+    # 1. RESERVA
+    print("\n1. 🕐 RESERVA:")
+    reserva = Reserva("RES001", estudiante, libro)
+    reserva.procesar_transaccion()
+    print(f"   {reserva}")
+    print(f"   Costo: ${reserva.calcular_costo():.2f}")
+    
+    # 2. PRÉSTAMO
+    print("\n2. 📖 PRÉSTAMO:")
+    prestamo = Prestamo("PRE001", estudiante, libro)
+    resultado = prestamo.procesar_transaccion()
+    print(f"   {prestamo} - Aprobado: {resultado}")
+    print(f"   Fecha límite: {prestamo.get_fecha_limite().strftime('%d/%m/%Y')}")
+    print(f"   Costo base: ${prestamo.calcular_costo():.2f}")
+    
+    # 3. RENOVACIÓN
+    print("\n3. 🔄 RENOVACIÓN:")
+    renovacion = Renovacion("REN001", estudiante, libro, prestamo)
+    resultado_ren = renovacion.procesar_transaccion()
+    print(f"   {renovacion} - Aprobada: {resultado_ren}")
+    print(f"   Nueva fecha límite: {renovacion.get_nueva_fecha_limite().strftime('%d/%m/%Y')}")
+    print(f"   Costo con 50% descuento: ${renovacion.calcular_costo():.2f}")
+    
+    # 4. DEVOLUCIÓN CON RETRASO
+    print("\n4. 📅 DEVOLUCIÓN CON RETRASO:")
+    # Simular retraso de 3 días
+    fecha_devolucion = prestamo.get_fecha_limite() + timedelta(days=3)
+    devolucion = Devolucion("DEV001", estudiante, libro, prestamo)
+    devolucion.procesar_transaccion()
+    print(f"   {devolucion}")
+    print(f"   Días de retraso: {prestamo.get_dias_retraso()}")
+    print(f"   Multa a pagar: ${devolucion.calcular_costo():.2f}")
+    
+    print("\n🎯 POLIMORFISMO CON LISTA DE TRANSACCIONES:")
+    transacciones = [
+        Prestamo("PRE002", profesor, libro),
+        Reserva("RES002", estudiante, libro),
+        Renovacion("REN002", profesor, libro, prestamo),
+        Devolucion("DEV002", profesor, libro, prestamo)
+    ]
+    
+    total_costo = 0
+    for trans in transacciones:
+        trans.procesar_transaccion()
+        costo = trans.calcular_costo()
+        print(f"{trans.__class__.__name__:12} → Estado: {trans.get_estado():12} → Costo: ${costo:.2f}")
+        total_costo += costo
+    
+    print(f"\n💵 COSTO TOTAL DE TRANSACCIONES: ${total_costo:.2f}")
+    
+    print("\n🔒 ENCAPSULAMIENTO - Validaciones:")
+    try:
+        prestamo.set_estado("estado_invalido")
+    except ValueError as e:
+        print(f"✅ Validación funciona: {e}")
+    
+    print("\n📊 RESUMEN DE MULTAS:")
+    prestamo2 = Prestamo("PRE003", estudiante, libro)
+    prestamo2.procesar_transaccion()
+    
+    # Devolver con 5 días de retraso
+    fecha_retraso = prestamo2.get_fecha_limite() + timedelta(days=5)
+    devolucion2 = Devolucion("DEV003", estudiante, libro, prestamo2)
+    devolucion2.procesar_transaccion()
+    
+    print(f"Retraso: {prestamo2.get_dias_retraso()} días")
+    print(f"Multa calculada: ${devolucion2.calcular_costo():.2f}")
+    print(f"Cálculo: {prestamo2.get_dias_retraso()} días × $0.50 = ${devolucion2.calcular_costo():.2f}")
+
+if __name__ == "__main__":
+    test_ejercicio_1_3()
