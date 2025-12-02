@@ -1,0 +1,276 @@
+#EJERCICIO 1.2 SISTEMA DE USUARIOS Y MEMBRESIAS
+from datetime import datetime
+
+class Usuario:
+    def __init__(self, nombre, identificacion, email):
+        self.__nombre = nombre
+        self.__identificacion = identificacion
+        self.__email = email
+        self.__fecha_registro = datetime.now()
+        self._historial_prestamos = []
+    
+    def get_nombre(self):
+        return self.__nombre
+    
+    def set_nombre(self, nombre):
+        if not nombre or not isinstance(nombre, str):
+            raise ValueError("Nombre inválido")
+        self.__nombre = nombre
+    
+    def get_identificacion(self):
+        return self.__identificacion
+    
+    def set_identificacion(self, identificacion):
+        if not identificacion or not isinstance(identificacion, str):
+            raise ValueError("Identificación inválida")
+        self.__identificacion = identificacion
+    
+    def get_email(self):
+        return self.__email
+    
+    def set_email(self, email):
+        if not email or "@" not in email:
+            raise ValueError("Email inválido")
+        self.__email = email
+    
+    def get_fecha_registro(self):
+        return self.__fecha_registro
+    
+    def agregar_prestamo(self, material):
+        if self._validar_limite_prestamos():
+            prestamo = {
+                'material': material,
+                'fecha': datetime.now(),
+                'devuelto': False
+            }
+            self._historial_prestamos.append(prestamo)
+            return True
+        print("❌ Límite de préstamos alcanzado")
+        return False
+    
+    def _validar_limite_prestamos(self):
+        activos = 0
+        for prestamo in self._historial_prestamos:
+            if not prestamo['devuelto']:
+                activos += 1
+        return activos < self.obtener_limite_prestamos()
+    
+    def obtener_limite_prestamos(self):
+        raise NotImplementedError("Método debe implementarse")
+    
+    def calcular_dias_prestamo(self):
+        raise NotImplementedError("Método debe implementarse")
+    
+    def obtener_privilegios(self):
+        raise NotImplementedError("Método debe implementarse")
+    
+    def generar_reporte(self):
+        activos = 0
+        for prestamo in self._historial_prestamos:
+            if not prestamo['devuelto']:
+                activos += 1
+        
+        return {
+            'usuario': self.__nombre,
+            'tipo': self.__class__.__name__,
+            'limite': self.obtener_limite_prestamos(),
+            'dias_prestamo': self.calcular_dias_prestamo(),
+            'prestamos_activos': activos,
+            'total_prestamos': len(self._historial_prestamos),
+            'privilegios': self.obtener_privilegios()
+        }
+    
+    def __str__(self):
+        return f"{self.__class__.__name__}: {self.__nombre}"
+
+class Estudiante(Usuario):
+    def __init__(self, nombre, identificacion, email, carrera, semestre):
+        super().__init__(nombre, identificacion, email)
+        self.__carrera = carrera
+        self.__semestre = semestre
+    
+    def obtener_limite_prestamos(self):
+        return 3
+    
+    def calcular_dias_prestamo(self):
+        return 7
+    
+    def obtener_privilegios(self):
+        return ["Acceso a sala de estudio", "Préstamo interbibliotecario", "Renovación online 1 vez"]
+    
+    def get_carrera(self):
+        return self.__carrera
+    
+    def set_carrera(self, carrera):
+        if not carrera or not isinstance(carrera, str):
+            raise ValueError("Carrera inválida")
+        self.__carrera = carrera
+    
+    def get_semestre(self):
+        return self.__semestre
+    
+    def set_semestre(self, semestre):
+        if not isinstance(semestre, int) or semestre < 1 or semestre > 12:
+            raise ValueError("Semestre inválido")
+        self.__semestre = semestre
+    
+    def __str__(self):
+        base = super().__str__()
+        return f"{base} | Carrera: {self.__carrera} (Semestre {self.__semestre})"
+
+class Profesor(Usuario):
+    def __init__(self, nombre, identificacion, email, departamento):
+        super().__init__(nombre, identificacion, email)
+        self.__departamento = departamento
+    
+    def obtener_limite_prestamos(self):
+        return 5
+    
+    def calcular_dias_prestamo(self):
+        return 15
+    
+    def obtener_privilegios(self):
+        return ["Préstamo extendido", "Acceso a recursos especiales", "Renovación automática", 
+                "Solicitud de adquisiciones"]
+    
+    def get_departamento(self):
+        return self.__departamento
+    
+    def set_departamento(self, departamento):
+        if not departamento or not isinstance(departamento, str):
+            raise ValueError("Departamento inválido")
+        self.__departamento = departamento
+    
+    def __str__(self):
+        base = super().__str__()
+        return f"{base} | Departamento: {self.__departamento}"
+
+class Investigador(Usuario):
+    def __init__(self, nombre, identificacion, email, area_investigacion):
+        super().__init__(nombre, identificacion, email)
+        self.__area_investigacion = area_investigacion
+    
+    def obtener_limite_prestamos(self):
+        return 10
+    
+    def calcular_dias_prestamo(self):
+        return 30
+    
+    def obtener_privilegios(self):
+        return ["Préstamo ilimitado virtual", "Acceso a bases de datos premium", 
+                "Renovación automática x3", "Préstamo internacional", "Asistente de investigación"]
+    
+    def get_area_investigacion(self):
+        return self.__area_investigacion
+    
+    def set_area_investigacion(self, area):
+        if not area or not isinstance(area, str):
+            raise ValueError("Área de investigación inválida")
+        self.__area_investigacion = area
+    
+    def __str__(self):
+        base = super().__str__()
+        return f"{base} | Área: {self.__area_investigacion}"
+
+class UsuarioPublico(Usuario):
+    def __init__(self, nombre, identificacion, email):
+        super().__init__(nombre, identificacion, email)
+    
+    def obtener_limite_prestamos(self):
+        return 2
+    
+    def calcular_dias_prestamo(self):
+        return 5
+    
+    def obtener_privilegios(self):
+        return ["Acceso a sala de lectura", "Consulta en sala"]
+    
+    def __str__(self):
+        return super().__str__()
+
+def test_ejercicio_1_2():
+    print("\n" + "=" * 60)
+    print("EJERCICIO 1.2: SISTEMA DE USUARIOS Y MEMBRESÍAS")
+    print("=" * 60)
+    
+    try:
+        usuario_base = Usuario("Test", "123", "test@email.com")
+        print("❌ No debería poder instanciar Usuario base")
+    except NotImplementedError:
+        print("✅ Correcto: No se puede instanciar Usuario base")
+    
+    usuarios = []
+    
+    # Crear 2 estudiantes
+    est1 = Estudiante("Ana López", "EST001", "ana@universidad.edu", "Ingeniería de Sistemas", 5)
+    est2 = Estudiante("Carlos Ruiz", "EST002", "carlos@universidad.edu", "Medicina", 8)
+    usuarios.append(est1)
+    usuarios.append(est2)
+    
+    # Crear 2 profesores
+    prof1 = Profesor("Dr. Martínez", "PROF001", "martinez@universidad.edu", "Matemáticas")
+    prof2 = Profesor("Dra. Gómez", "PROF002", "gomez@universidad.edu", "Literatura")
+    usuarios.append(prof1)
+    usuarios.append(prof2)
+    
+    # Crear 2 investigadores
+    inv1 = Investigador("Dr. Rodríguez", "INV001", "rodriguez@instituto.edu", "Inteligencia Artificial")
+    inv2 = Investigador("Dra. Pérez", "INV002", "perez@instituto.edu", "Genética")
+    usuarios.append(inv1)
+    usuarios.append(inv2)
+    
+    # Crear 2 usuarios públicos
+    pub1 = UsuarioPublico("Juan Torres", "PUB001", "juan@email.com")
+    pub2 = UsuarioPublico("María García", "PUB002", "maria@email.com")
+    usuarios.append(pub1)
+    usuarios.append(pub2)
+    
+    print("\n👥 USUARIOS CREADOS:")
+    for usuario in usuarios:
+        print(f"- {usuario}")
+    
+    print("\n🔒 ENCAPSULAMIENTO - Acceso controlado:")
+    try:
+        print("Intentando acceder a nombre privado:", est1.__nombre)
+    except AttributeError:
+        print("✅ Atributos privados correctamente protegidos")
+    
+    print("\n🔄 POLIMORFISMO - Métodos diferentes por clase:")
+    for usuario in usuarios:
+        print(f"{usuario.get_nombre():20} → Límite: {usuario.obtener_limite_prestamos():2} | Días: {usuario.calcular_dias_prestamo():2}")
+    
+    print("\n📊 POLIMORFISMO - Reportes diferentes:")
+    for usuario in usuarios:
+        reporte = usuario.generar_reporte()
+        print(f"\n{usuario.get_nombre()}:")
+        for key, value in reporte.items():
+            if key != 'privilegios':
+                print(f"  {key}: {value}")
+    
+    print("\n📚 Simulando préstamos:")
+    # Simular algunos préstamos
+    from ejercicio_1_1 import LibroFisico
+    libro_prestamo = LibroFisico("Libro de Prueba", "Autor", 2023, "TEST", 100, "Editorial", "bueno")
+    
+    est1.agregar_prestamo(libro_prestamo)
+    est1.agregar_prestamo(libro_prestamo)
+    est1.agregar_prestamo(libro_prestamo)
+    print(f"Estudiante intenta 4to préstamo: {est1.agregar_prestamo(libro_prestamo)} (debe ser False)")
+    
+    prof1.agregar_prestamo(libro_prestamo)
+    prof1.agregar_prestamo(libro_prestamo)
+    prof1.agregar_prestamo(libro_prestamo)
+    prof1.agregar_prestamo(libro_prestamo)
+    prof1.agregar_prestamo(libro_prestamo)
+    print(f"Profesor intenta 6to préstamo: {prof1.agregar_prestamo(libro_prestamo)} (debe ser False)")
+    
+    print("\n💼 PRIVILEGIOS POR TIPO (POLIMORFISMO):")
+    for usuario in usuarios:
+        privilegios = usuario.obtener_privilegios()
+        print(f"\n{usuario.__class__.__name__}:")
+        for p in privilegios:
+            print(f"  - {p}")
+
+if __name__ == "__main__":
+    test_ejercicio_1_1()
+    test_ejercicio_1_2()
