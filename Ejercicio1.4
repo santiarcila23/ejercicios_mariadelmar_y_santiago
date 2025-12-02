@@ -1,0 +1,520 @@
+#EJERCICIO 1.4 - SISTEMA DE REPORTES Y ESTADÍSTICAS
+from datetime import datetime, timedelta
+import json
+import csv
+from io import StringIO
+
+class Reporte:
+    def __init__(self, titulo_reporte, generado_por):
+        self.__titulo_reporte = titulo_reporte
+        self.__fecha_generacion = datetime.now()
+        self.__generado_por = generado_por
+        self._datos = []
+    
+    def get_titulo_reporte(self):
+        return self.__titulo_reporte
+    
+    def get_fecha_generacion(self):
+        return self.__fecha_generacion
+    
+    def get_generado_por(self):
+        return self.__generado_por
+    
+    def obtener_fecha_generacion(self):
+        return self.__fecha_generacion.strftime("%d/%m/%Y %H:%M:%S")
+    
+    def generar_contenido(self):
+        raise NotImplementedError("Método debe implementarse")
+    
+    def exportar_formato(self):
+        raise NotImplementedError("Método debe implementarse")
+    
+    def visualizar(self):
+        contenido = self.generar_contenido()
+        print(f"\n{'='*60}")
+        print(f"📊 {self.__titulo_reporte}")
+        print(f"{'='*60}")
+        print(f"📅 Generado: {self.obtener_fecha_generacion()}")
+        print(f"👤 Por: {self.__generado_por}")
+        print(f"{'-'*60}")
+        
+        if isinstance(contenido, dict):
+            for clave, valor in contenido.items():
+                print(f"{clave}: {valor}")
+        elif isinstance(contenido, list):
+            for item in contenido:
+                print(f"- {item}")
+        else:
+            print(contenido)
+        
+        print(f"{'='*60}")
+    
+    def __str__(self):
+        return f"Reporte: {self.__titulo_reporte}"
+
+class ReportePrestamos(Reporte):
+    def __init__(self, generado_por, filtro_fecha_inicio, filtro_fecha_fin):
+        super().__init__("REPORTE DE PRÉSTAMOS", generado_por)
+        self.__filtro_fecha_inicio = filtro_fecha_inicio
+        self.__filtro_fecha_fin = filtro_fecha_fin
+    
+    def _procesar_datos(self, prestamos):
+        datos_procesados = []
+        for prestamo in prestamos:
+            if self.__filtro_fecha_inicio <= prestamo.get_fecha() <= self.__filtro_fecha_fin:
+                datos_procesados.append({
+                    'id': prestamo.get_id_transaccion(),
+                    'usuario': prestamo.get_usuario().get_nombre(),
+                    'material': prestamo.get_material().get_titulo(),
+                    'fecha': prestamo.get_fecha().strftime("%d/%m/%Y"),
+                    'estado': prestamo.get_estado(),
+                    'costo': f"${prestamo.calcular_costo():.2f}"
+                })
+        return datos_procesados
+    
+    def generar_contenido(self):
+        from ejercicio_1_3 import Prestamo
+        
+        # Datos de ejemplo
+        from ejercicio_1_1 import LibroFisico
+        from ejercicio_1_2 import Estudiante
+        
+        libro1 = LibroFisico("Libro 1", "Autor 1", 2023, "L1", 100, "Ed1", "bueno")
+        libro2 = LibroFisico("Libro 2", "Autor 2", 2023, "L2", 200, "Ed2", "bueno")
+        estudiante = Estudiante("Est1", "E1", "e1@edu.com", "Carrera", 3)
+        
+        prestamos = [
+            Prestamo("P1", estudiante, libro1),
+            Prestamo("P2", estudiante, libro2)
+        ]
+        
+        for p in prestamos:
+            p.procesar_transaccion()
+        
+        self._datos = self._procesar_datos(prestamos)
+        
+        estadisticas = self._calcular_estadisticas()
+        return {
+            'Total préstamos': len(self._datos),
+            'Período': f"{self.__filtro_fecha_inicio.strftime('%d/%m/%Y')} - {self.__filtro_fecha_fin.strftime('%d/%m/%Y')}",
+            'Préstamos aprobados': estadisticas['aprobados'],
+            'Préstamos pendientes': estadisticas['pendientes'],
+            'Ingresos totales': f"${estadisticas['ingresos']:.2f}",
+            'Detalles': self._datos
+        }
+    
+    def _calcular_estadisticas(self):
+        aprobados = sum(1 for d in self._datos if d['estado'] == 'aprobada')
+        pendientes = sum(1 for d in self._datos if d['estado'] == 'pendiente')
+        ingresos = sum(float(d['costo'].replace('$', '')) for d in self._datos)
+        
+        return {
+            'aprobados': aprobados,
+            'pendientes': pendientes,
+            'ingresos': ingresos
+        }
+    
+    def exportar_formato(self, formato="texto"):
+        contenido = self.generar_contenido()
+        
+        if formato == "texto":
+            resultado = f"Reporte: {self.get_titulo_reporte()}\n"
+            resultado += f"Generado: {self.obtener_fecha_generacion()}\n"
+            resultado += f"Por: {self.get_generado_por()}\n\n"
+            
+            for clave, valor in contenido.items():
+                if clave != 'Detalles':
+                    resultado += f"{clave}: {valor}\n"
+            
+            resultado += "\nDetalles:\n"
+            for detalle in contenido['Detalles']:
+                resultado += f"- {detalle}\n"
+            
+            return resultado
+        
+        elif formato == "json":
+            return json.dumps(contenido, indent=2, ensure_ascii=False)
+        
+        elif formato == "csv":
+            output = StringIO()
+            writer = csv.writer(output)
+            
+            # Encabezados
+            writer.writerow(['Campo', 'Valor'])
+            
+            # Datos principales
+            for clave, valor in contenido.items():
+                if clave != 'Detalles':
+                    writer.writerow([clave, valor])
+            
+            # Detalles
+            writer.writerow([])
+            writer.writerow(['DETALLES DE PRÉSTAMOS'])
+            if contenido['Detalles']:
+                headers = contenido['Detalles'][0].keys()
+                writer.writerow(headers)
+                for fila in contenido['Detalles']:
+                    writer.writerow(fila.values())
+            
+            return output.getvalue()
+        
+        return "Formato no soportado"
+
+class ReporteMateriales(Reporte):
+    def __init__(self, generado_por, ordenar_por="mas_prestados"):
+        super().__init__("REPORTE DE MATERIALES", generado_por)
+        self.__ordenar_por = ordenar_por
+    
+    def _procesar_datos(self, materiales):
+        # Simular datos de préstamos por material
+        datos_procesados = []
+        for material in materiales:
+            prestamos_simulados = {
+                "LIB001": 15,
+                "LIB002": 8,
+                "ELE001": 25,
+                "ELE002": 12,
+                "REV001": 5,
+                "REV002": 3,
+                "AUD001": 18,
+                "AUD002": 10
+            }
+            
+            veces_prestado = prestamos_simulados.get(material.get_codigo_unico(), 0)
+            
+            datos_procesados.append({
+                'codigo': material.get_codigo_unico(),
+                'titulo': material.get_titulo(),
+                'tipo': material.obtener_tipo_material(),
+                'autor': material.get_autor(),
+                'prestamos': veces_prestado
+            })
+        
+        # Ordenar según criterio
+        if self.__ordenar_por == "mas_prestados":
+            datos_procesados.sort(key=lambda x: x['prestamos'], reverse=True)
+        elif self.__ordenar_por == "menos_prestados":
+            datos_procesados.sort(key=lambda x: x['prestamos'])
+        
+        return datos_procesados
+    
+    def generar_contenido(self):
+        from ejercicio_1_1 import LibroFisico, LibroElectronico, Revista, Audiolibro
+        
+        materiales = [
+            LibroFisico("Cien Años", "García Márquez", 1967, "LIB001", 471, "Sudamericana", "bueno"),
+            LibroFisico("Don Quijote", "Cervantes", 1605, "LIB002", 863, "Robles", "regular"),
+            LibroElectronico("Python", "Matthes", 2015, "ELE001", 5.2, "PDF", "http://ejemplo.com"),
+            LibroElectronico("Clean Code", "Martin", 2008, "ELE002", 3.8, "EPUB", "http://ejemplo.com"),
+            Revista("Nat Geo", "Varios", 2023, "REV001", 245, "Octubre"),
+            Revista("Sci Am", "Varios", 2023, "REV002", 321, "Noviembre"),
+            Audiolibro("Principito", "Saint-Exupéry", 1943, "AUD001", 120, "Narrador1", "MP3"),
+            Audiolibro("1984", "Orwell", 1949, "AUD002", 300, "Narrador2", "MP3")
+        ]
+        
+        self._datos = self._procesar_datos(materiales)
+        
+        estadisticas = self._calcular_estadisticas()
+        return {
+            'Total materiales': len(self._datos),
+            'Ordenado por': self.__ordenar_por.replace('_', ' ').title(),
+            'Material más solicitado': estadisticas['mas_solicitado'],
+            'Material menos solicitado': estadisticas['menos_solicitado'],
+            'Promedio préstamos': f"{estadisticas['promedio']:.1f}",
+            'Detalles': self._datos
+        }
+    
+    def _calcular_estadisticas(self):
+        if not self._datos:
+            return {'mas_solicitado': 'N/A', 'menos_solicitado': 'N/A', 'promedio': 0}
+        
+        prestamos = [d['prestamos'] for d in self._datos]
+        mas_solicitado = self._datos[0]['titulo']
+        menos_solicitado = self._datos[-1]['titulo']
+        promedio = sum(prestamos) / len(prestamos)
+        
+        return {
+            'mas_solicitado': mas_solicitado,
+            'menos_solicitado': menos_solicitado,
+            'promedio': promedio
+        }
+    
+    def exportar_formato(self, formato="texto"):
+        contenido = self.generar_contenido()
+        
+        if formato == "texto":
+            resultado = f"REPORTE DE MATERIALES\n{'='*40}\n"
+            resultado += f"Ordenado por: {self.__ordenar_por.replace('_', ' ').title()}\n\n"
+            
+            resultado += f"{'CÓDIGO':<10} {'TÍTULO':<30} {'TIPO':<15} {'PRÉSTAMOS':>10}\n"
+            resultado += f"{'-'*65}\n"
+            
+            for detalle in contenido['Detalles']:
+                resultado += f"{detalle['codigo']:<10} {detalle['titulo'][:28]:<30} {detalle['tipo'][:13]:<15} {detalle['prestamos']:>10}\n"
+            
+            return resultado
+        
+        elif formato == "json":
+            return json.dumps(contenido, indent=2, ensure_ascii=False)
+        
+        return "Formato no soportado"
+
+class ReporteUsuarios(Reporte):
+    def __init__(self, generado_por, tipo_usuario=None, incluir_morosos=True):
+        super().__init__("REPORTE DE USUARIOS", generado_por)
+        self.__tipo_usuario = tipo_usuario
+        self.__incluir_morosos = incluir_morosos
+    
+    def _procesar_datos(self, usuarios):
+        datos_procesados = []
+        for usuario in usuarios:
+            if self.__tipo_usuario and usuario.__class__.__name__ != self.__tipo_usuario:
+                continue
+            
+            # Simular datos de morosidad
+            moroso_simulado = usuario.get_nombre() in ["Estudiante Moroso", "Profesor Moroso"]
+            
+            if self.__incluir_morosos or not moroso_simulado:
+                datos_procesados.append({
+                    'nombre': usuario.get_nombre(),
+                    'tipo': usuario.__class__.__name__,
+                    'email': usuario.get_email(),
+                    'registro': usuario.get_fecha_registro().strftime("%d/%m/%Y"),
+                    'limite': usuario.obtener_limite_prestamos(),
+                    'moroso': moroso_simulado,
+                    'prestamos_activos': len([p for p in usuario.get_historial_prestamos() if not p['devuelto']])
+                })
+        
+        return datos_procesados
+    
+    def generar_contenido(self):
+        from ejercicio_1_2 import Estudiante, Profesor, Investigador, UsuarioPublico
+        
+        usuarios = [
+            Estudiante("Ana López", "EST001", "ana@edu.com", "Sistemas", 5),
+            Estudiante("Carlos Ruiz", "EST002", "carlos@edu.com", "Medicina", 8),
+            Estudiante("Estudiante Moroso", "EST003", "moroso@edu.com", "Derecho", 3),
+            Profesor("Dr. Martínez", "PROF001", "martinez@edu.com", "Matemáticas"),
+            Profesor("Dra. Gómez", "PROF002", "gomez@edu.com", "Literatura"),
+            Profesor("Profesor Moroso", "PROF003", "pmoroso@edu.com", "Historia"),
+            Investigador("Dr. Rodríguez", "INV001", "rodriguez@edu.com", "IA"),
+            UsuarioPublico("Juan Público", "PUB001", "juan@email.com")
+        ]
+        
+        self._datos = self._procesar_datos(usuarios)
+        
+        estadisticas = self._calcular_estadisticas()
+        return {
+            'Total usuarios': len(self._datos),
+            'Filtro tipo': self.__tipo_usuario or "Todos",
+            'Incluye morosos': "Sí" if self.__incluir_morosos else "No",
+            'Usuarios morosos': estadisticas['morosos'],
+            'Promedio préstamos activos': f"{estadisticas['promedio_prestamos']:.1f}",
+            'Detalles': self._datos
+        }
+    
+    def _calcular_estadisticas(self):
+        if not self._datos:
+            return {'morosos': 0, 'promedio_prestamos': 0}
+        
+        morosos = sum(1 for d in self._datos if d['moroso'])
+        total_prestamos = sum(d['prestamos_activos'] for d in self._datos)
+        promedio = total_prestamos / len(self._datos) if self._datos else 0
+        
+        return {
+            'morosos': morosos,
+            'promedio_prestamos': promedio
+        }
+    
+    def exportar_formato(self, formato="texto"):
+        contenido = self.generar_contenido()
+        
+        if formato == "texto":
+            resultado = f"REPORTE DE USUARIOS\n{'='*40}\n"
+            resultado += f"Tipo: {contenido['Filtro tipo']} | Morosos incluidos: {contenido['Incluye morosos']}\n\n"
+            
+            resultado += f"{'NOMBRE':<20} {'TIPO':<15} {'EMAIL':<25} {'MOROSO':<8} {'PRÉSTAMOS':>10}\n"
+            resultado += f"{'-'*78}\n"
+            
+            for detalle in contenido['Detalles']:
+                moroso_str = "Sí" if detalle['moroso'] else "No"
+                resultado += f"{detalle['nombre'][:18]:<20} {detalle['tipo'][:13]:<15} {detalle['email'][:23]:<25} {moroso_str:<8} {detalle['prestamos_activos']:>10}\n"
+            
+            return resultado
+        
+        elif formato == "json":
+            return json.dumps(contenido, indent=2, ensure_ascii=False)
+        
+        return "Formato no soportado"
+
+class ReporteFinanciero(Reporte):
+    def __init__(self, generado_por, periodo="mensual"):
+        super().__init__("REPORTE FINANCIERO", generado_por)
+        self.__periodo = periodo
+    
+    def generar_contenido(self):
+        # Simular datos financieros
+        ingresos_simulados = {
+            "diario": 150.75,
+            "semanal": 1055.25,
+            "mensual": 4522.50,
+            "anual": 54270.00
+        }
+        
+        multas_simuladas = {
+            "diario": 25.50,
+            "semanal": 178.50,
+            "mensual": 765.00,
+            "anual": 9180.00
+        }
+        
+        self._datos = {
+            'periodo': self.__periodo,
+            'ingresos': ingresos_simulados.get(self.__periodo, 0),
+            'multas': multas_simuladas.get(self.__periodo, 0),
+            'total': ingresos_simulados.get(self.__periodo, 0) + multas_simuladas.get(self.__periodo, 0)
+        }
+        
+        return self._calcular_estadisticas()
+    
+    def _calcular_estadisticas(self):
+        ingresos = self._datos['ingresos']
+        multas = self._datos['multas']
+        total = self._datos['total']
+        
+        porcentaje_multas = (multas / total * 100) if total > 0 else 0
+        
+        return {
+            'Período': self.__periodo.title(),
+            'Total ingresos': f"${ingresos:,.2f}",
+            'Total multas': f"${multas:,.2f}",
+            'Ingresos totales': f"${total:,.2f}",
+            'Porcentaje multas': f"{porcentaje_multas:.1f}%",
+            'Promedio diario': f"${(total / 30):,.2f}" if self.__periodo == 'mensual' else "N/A",
+            'Tendencia': "📈 Creciente" if multas < ingresos * 0.1 else "📉 Decreciente"
+        }
+    
+    def exportar_formato(self, formato="texto"):
+        contenido = self.generar_contenido()
+        
+        if formato == "texto":
+            resultado = f"REPORTE FINANCIERO - {self.__periodo.upper()}\n"
+            resultado += f"{'='*40}\n\n"
+            
+            for clave, valor in contenido.items():
+                resultado += f"{clave}: {valor}\n"
+            
+            return resultado
+        
+        elif formato == "json":
+            return json.dumps(contenido, indent=2, ensure_ascii=False)
+        
+        elif formato == "csv":
+            output = StringIO()
+            writer = csv.writer(output)
+            writer.writerow(['CONCEPTO', 'VALOR'])
+            for clave, valor in contenido.items():
+                writer.writerow([clave, valor])
+            return output.getvalue()
+        
+        return "Formato no soportado"
+
+def test_ejercicio_1_4():
+    print("\n" + "=" * 60)
+    print("EJERCICIO 1.4: SISTEMA DE REPORTES Y ESTADÍSTICAS")
+    print("=" * 60)
+    
+    try:
+        reporte_base = Reporte("Test", "Admin")
+        print("❌ No debería poder instanciar Reporte base")
+    except NotImplementedError:
+        print("✅ Correcto: No se puede instanciar Reporte base")
+    
+    print("\n📊 GENERANDO REPORTES:")
+    
+    # 1. Reporte de Préstamos
+    print("\n1. 📖 REPORTE DE PRÉSTAMOS:")
+    fecha_inicio = datetime.now() - timedelta(days=30)
+    fecha_fin = datetime.now()
+    reporte_prestamos = ReportePrestamos("Administrador", fecha_inicio, fecha_fin)
+    reporte_prestamos.visualizar()
+    
+    print("\n💾 Exportando a diferentes formatos:")
+    print("Texto:\n", reporte_prestamos.exportar_formato("texto")[:200], "...")
+    print("\nJSON (primeros 200 chars):\n", reporte_prestamos.exportar_formato("json")[:200], "...")
+    print("\nCSV:\n", reporte_prestamos.exportar_formato("csv")[:200], "...")
+    
+    # 2. Reporte de Materiales
+    print("\n2. 📚 REPORTE DE MATERIALES:")
+    reporte_materiales = ReporteMateriales("Bibliotecario", "mas_prestados")
+    reporte_materiales.visualizar()
+    
+    print("\n🎯 Ordenado por menos prestados:")
+    reporte_materiales2 = ReporteMateriales("Bibliotecario", "menos_prestados")
+    contenido = reporte_materiales2.generar_contenido()
+    print(f"Material menos solicitado: {contenido['Material menos solicitado']}")
+    
+    # 3. Reporte de Usuarios
+    print("\n3. 👥 REPORTE DE USUARIOS:")
+    reporte_usuarios = ReporteUsuarios("Administrador", tipo_usuario="Estudiante", incluir_morosos=True)
+    reporte_usuarios.visualizar()
+    
+    print("\n🔍 Solo usuarios no morosos:")
+    reporte_usuarios2 = ReporteUsuarios("Administrador", incluir_morosos=False)
+    contenido = reporte_usuarios2.generar_contenido()
+    print(f"Total usuarios sin morosos: {contenido['Total usuarios']}")
+    
+    # 4. Reporte Financiero
+    print("\n4. 💰 REPORTE FINANCIERO:")
+    reporte_financiero = ReporteFinanciero("Contador", "mensual")
+    reporte_financiero.visualizar()
+    
+    print("\n📈 Reporte anual:")
+    reporte_financiero2 = ReporteFinanciero("Contador", "anual")
+    contenido = reporte_financiero2.generar_contenido()
+    print(f"Ingresos anuales: {contenido['Ingresos totales']}")
+    
+    print("\n🎯 POLIMORFISMO CON LISTA DE REPORTES:")
+    reportes = [
+        reporte_prestamos,
+        reporte_materiales,
+        reporte_usuarios,
+        reporte_financiero
+    ]
+    
+    for reporte in reportes:
+        print(f"\n{reporte.get_titulo_reporte()}:")
+        print(f"  Generado por: {reporte.get_generado_por()}")
+        print(f"  Tipo: {reporte.__class__.__name__}")
+        
+        # Demostrar polimorfismo en exportar_formato
+        try:
+            exportado = reporte.exportar_formato("texto")
+            print(f"  Exportación: {len(exportado)} caracteres")
+        except:
+            print(f"  Exportación: Método específico de la clase")
+    
+    print("\n🔒 ENCAPSULAMIENTO - Acceso controlado:")
+    try:
+        print("Intentando acceder a título privado:", reporte_prestamos.__titulo_reporte)
+    except AttributeError:
+        print("✅ Atributos privados correctamente protegidos")
+
+if __name__ == "__main__":
+    # Ejecutar todos los tests
+    print("PAQUETE 1 - SISTEMA DE BIBLIOTECA DIGITAL")
+    print("=" * 60)
+    
+    test_ejercicio_1_1()
+    test_ejercicio_1_2() 
+    test_ejercicio_1_3()
+    test_ejercicio_1_4()
+    
+    print("\n" + "=" * 60)
+    print("✅ TODOS LOS EJERCICIOS COMPLETADOS")
+    print("✅ 4 PILARES DE POO IMPLEMENTADOS:")
+    print("   1. ENCAPSULAMIENTO ✓")
+    print("   2. HERENCIA ✓")  
+    print("   3. POLIMORFISMO ✓")
+    print("   4. ABSTRACCIÓN ✓")
+    print("=" * 60)
