@@ -1,7 +1,5 @@
-"""
-EJERCICIO 1.2: SISTEMA DE USUARIOS Y MEMBRESÍAS
-"""
-
+import json
+import os
 from datetime import datetime
 
 class Usuario:
@@ -9,581 +7,414 @@ class Usuario:
         self.__nombre = nombre
         self.__identificacion = identificacion
         self.__email = email
-        self.__fecha_registro = datetime.now()
+        self.__fecha_registro = datetime.now().isoformat()
         self._historial_prestamos = []
     
-    def get_nombre(self):
-        return self.__nombre
+    def get_nombre(self): return self.__nombre
+    def set_nombre(self, valor):
+        if not valor.strip(): raise ValueError("Nombre vacío")
+        self.__nombre = valor
     
-    def set_nombre(self, nombre):
-        if not nombre or not isinstance(nombre, str):
-            raise ValueError("Nombre inválido")
-        self.__nombre = nombre
+    def get_identificacion(self): return self.__identificacion
+    def set_identificacion(self, valor):
+        if not valor.strip(): raise ValueError("ID vacío")
+        self.__identificacion = valor
     
-    def get_identificacion(self):
-        return self.__identificacion
+    def get_email(self): return self.__email
+    def set_email(self, valor):
+        if not '@' in valor: raise ValueError("Email inválido")
+        self.__email = valor
     
-    def set_identificacion(self, identificacion):
-        if not identificacion or not isinstance(identificacion, str):
-            raise ValueError("Identificación inválida")
-        self.__identificacion = identificacion
+    def get_fecha_registro(self): return self.__fecha_registro
     
-    def get_email(self):
-        return self.__email
-    
-    def set_email(self, email):
-        if not email or "@" not in email:
-            raise ValueError("Email inválido")
-        self.__email = email
-    
-    def get_fecha_registro(self):
-        return self.__fecha_registro
+    def obtener_limite_prestamos(self): raise NotImplementedError("Abstracto")
+    def calcular_dias_prestamo(self): raise NotImplementedError("Abstracto")
+    def obtener_privilegios(self): raise NotImplementedError("Abstracto")
     
     def agregar_prestamo(self, material):
-        if self._validar_limite_prestamos():
-            prestamo = {
+        if not material: raise ValueError("Material vacío")
+        if self.__validar_limite_prestamos():
+            self._historial_prestamos.append({
                 'material': material,
-                'fecha': datetime.now(),
-                'devuelto': False
-            }
-            self._historial_prestamos.append(prestamo)
+                'fecha': datetime.now().isoformat(),
+                'estado': 'activo'
+            })
             return True
         return False
     
-    def _validar_limite_prestamos(self):
-        activos = 0
-        for prestamo in self._historial_prestamos:
-            if not prestamo['devuelto']:
-                activos += 1
-        return activos < self.obtener_limite_prestamos()
+    def __validar_limite_prestamos(self):
+        activos = [p for p in self._historial_prestamos if p['estado'] == 'activo']
+        return len(activos) < self.obtener_limite_prestamos()
     
-    def obtener_limite_prestamos(self):
-        raise NotImplementedError("Método debe implementarse")
+    def get_historial_prestamos(self): return self._historial_prestamos.copy()
     
-    def calcular_dias_prestamo(self):
-        raise NotImplementedError("Método debe implementarse")
-    
-    def obtener_privilegios(self):
-        raise NotImplementedError("Método debe implementarse")
+    def devolver_prestamo(self, material_id):
+        for p in self._historial_prestamos:
+            if p['material'].get_codigo_unico() == material_id and p['estado'] == 'activo':
+                p['estado'] = 'devuelto'
+                p['fecha_devolucion'] = datetime.now().isoformat()
+                return True
+        return False
     
     def generar_reporte(self):
-        activos = 0
-        for prestamo in self._historial_prestamos:
-            if not prestamo['devuelto']:
-                activos += 1
-        
+        activos = [p for p in self._historial_prestamos if p['estado'] == 'activo']
+        devueltos = [p for p in self._historial_prestamos if p['estado'] == 'devuelto']
         return {
             'nombre': self.__nombre,
-            'tipo': self.__class__.__name__,
-            'limite_prestamos': self.obtener_limite_prestamos(),
-            'dias_prestamo': self.calcular_dias_prestamo(),
-            'prestamos_activos': activos,
+            'tipo': self.obtener_privilegios(),
             'total_prestamos': len(self._historial_prestamos),
-            'privilegios': self.obtener_privilegios()
+            'activos': len(activos),
+            'devueltos': len(devueltos),
+            'limite': self.obtener_limite_prestamos(),
+            'dias_prestamo': self.calcular_dias_prestamo()
         }
     
-    def get_historial_prestamos(self):
-        return self._historial_prestamos.copy()
+    def to_dict(self):
+        return {
+            'nombre': self.get_nombre(),
+            'identificacion': self.get_identificacion(),
+            'email': self.get_email(),
+            'fecha_registro': self.get_fecha_registro(),
+            'tipo': self.obtener_privilegios(),
+            'historial': self._historial_prestamos
+        }
     
-    def __str__(self):
-        return f"{self.__class__.__name__}: {self.__nombre}"
+    def __str__(self): return f"{self.get_identificacion()} - {self.get_nombre()} ({self.obtener_privilegios()})"
 
 class Estudiante(Usuario):
-    def __init__(self, nombre, identificacion, email, carrera, semestre):
-        super().__init__(nombre, identificacion, email)
+    def __init__(self, nombre, id, email, carrera, semestre):
+        super().__init__(nombre, id, email)
         self.__carrera = carrera
         self.__semestre = semestre
     
-    def obtener_limite_prestamos(self):
-        return 3
+    def obtener_limite_prestamos(self): return 3
+    def calcular_dias_prestamo(self): return 7
+    def obtener_privilegios(self): return "Estudiante"
     
-    def calcular_dias_prestamo(self):
-        return 7
+    def to_dict(self):
+        data = super().to_dict()
+        data.update({'carrera': self.__carrera, 'semestre': self.__semestre})
+        return data
     
-    def obtener_privilegios(self):
-        return ["Acceso a sala de estudio", "Préstamo interbibliotecario", "Renovación online 1 vez"]
-    
-    def get_carrera(self):
-        return self.__carrera
-    
-    def set_carrera(self, carrera):
-        if not carrera or not isinstance(carrera, str):
-            raise ValueError("Carrera inválida")
-        self.__carrera = carrera
-    
-    def get_semestre(self):
-        return self.__semestre
-    
-    def set_semestre(self, semestre):
-        if not isinstance(semestre, int) or semestre < 1 or semestre > 12:
-            raise ValueError("Semestre inválido")
-        self.__semestre = semestre
-    
-    def __str__(self):
-        return f"{super().__str__()} | Carrera: {self.__carrera} (Sem {self.__semestre})"
+    def __str__(self): return f"{super().__str__()} | Carrera: {self.__carrera}"
 
 class Profesor(Usuario):
-    def __init__(self, nombre, identificacion, email, departamento):
-        super().__init__(nombre, identificacion, email)
+    def __init__(self, nombre, id, email, departamento):
+        super().__init__(nombre, id, email)
         self.__departamento = departamento
     
-    def obtener_limite_prestamos(self):
-        return 5
+    def obtener_limite_prestamos(self): return 5
+    def calcular_dias_prestamo(self): return 15
+    def obtener_privilegios(self): return "Profesor"
     
-    def calcular_dias_prestamo(self):
-        return 15
+    def to_dict(self):
+        data = super().to_dict()
+        data.update({'departamento': self.__departamento})
+        return data
     
-    def obtener_privilegios(self):
-        return ["Préstamo extendido", "Acceso a recursos especiales", 
-                "Renovación automática", "Solicitud de adquisiciones"]
-    
-    def get_departamento(self):
-        return self.__departamento
-    
-    def set_departamento(self, departamento):
-        if not departamento or not isinstance(departamento, str):
-            raise ValueError("Departamento inválido")
-        self.__departamento = departamento
-    
-    def __str__(self):
-        return f"{super().__str__()} | Depto: {self.__departamento}"
+    def __str__(self): return f"{super().__str__()} | Depto: {self.__departamento}"
 
 class Investigador(Usuario):
-    def __init__(self, nombre, identificacion, email, area_investigacion):
-        super().__init__(nombre, identificacion, email)
-        self.__area_investigacion = area_investigacion
-    
-    def obtener_limite_prestamos(self):
-        return 10
-    
-    def calcular_dias_prestamo(self):
-        return 30
-    
-    def obtener_privilegios(self):
-        return ["Préstamo ilimitado virtual", "Acceso a bases de datos premium", 
-                "Renovación automática x3", "Préstamo internacional"]
-    
-    def get_area_investigacion(self):
-        return self.__area_investigacion
-    
-    def set_area_investigacion(self, area):
-        if not area or not isinstance(area, str):
-            raise ValueError("Área de investigación inválida")
+    def __init__(self, nombre, id, email, area):
+        super().__init__(nombre, id, email)
         self.__area_investigacion = area
     
-    def __str__(self):
-        return f"{super().__str__()} | Área: {self.__area_investigacion}"
+    def obtener_limite_prestamos(self): return 10
+    def calcular_dias_prestamo(self): return 30
+    def obtener_privilegios(self): return "Investigador"
+    
+    def to_dict(self):
+        data = super().to_dict()
+        data.update({'area_investigacion': self.__area_investigacion})
+        return data
+    
+    def __str__(self): return f"{super().__str__()} | Área: {self.__area_investigacion}"
 
 class UsuarioPublico(Usuario):
-    def __init__(self, nombre, identificacion, email):
-        super().__init__(nombre, identificacion, email)
+    def __init__(self, nombre, id, email):
+        super().__init__(nombre, id, email)
     
-    def obtener_limite_prestamos(self):
-        return 2
+    def obtener_limite_prestamos(self): return 2
+    def calcular_dias_prestamo(self): return 5
+    def obtener_privilegios(self): return "Usuario Público"
     
-    def calcular_dias_prestamo(self):
-        return 5
-    
-    def obtener_privilegios(self):
-        return ["Acceso a sala de lectura", "Consulta en sala"]
-    
-    def __str__(self):
-        return super().__str__()
+    def __str__(self): return super().__str__()
 
-# ========== MENÚ INTERACTIVO ==========
-class MenuUsuarios:
+class JSONStorage:
+    def __init__(self, file_path="data_usuarios.json"): self.file_path = file_path
+    
+    def load_usuarios(self):
+        if not os.path.exists(self.file_path): return []
+        try:
+            with open(self.file_path, 'r', encoding='utf-8') as file:
+                data = json.load(file)
+                usuarios = []
+                for item in data:
+                    tipo = item['tipo']
+                    if tipo == "Estudiante":
+                        u = Estudiante(item['nombre'], item['identificacion'], item['email'], item['carrera'], item['semestre'])
+                    elif tipo == "Profesor":
+                        u = Profesor(item['nombre'], item['identificacion'], item['email'], item['departamento'])
+                    elif tipo == "Investigador":
+                        u = Investigador(item['nombre'], item['identificacion'], item['email'], item['area_investigacion'])
+                    elif tipo == "Usuario Público":
+                        u = UsuarioPublico(item['nombre'], item['identificacion'], item['email'])
+                    else: continue
+                    u._historial_prestamos = item['historial']
+                    usuarios.append(u)
+                print(f"📂 Cargados {len(usuarios)} usuarios")
+                return usuarios
+        except: return []
+    
+    def save_usuarios(self, usuarios):
+        try:
+            data = [u.to_dict() for u in usuarios]
+            with open(self.file_path, 'w', encoding='utf-8') as file:
+                json.dump(data, file, indent=2, ensure_ascii=False)
+            print(f"💾 Guardados {len(usuarios)} usuarios")
+            return True
+        except: return False
+
+class UsuarioService:
     def __init__(self):
-        self.usuarios = []
-        self.cargar_datos_ejemplo()
+        self.storage = JSONStorage()
+        self.usuarios = self.storage.load_usuarios()
     
-    def cargar_datos_ejemplo(self):
-        """Carga datos de ejemplo para probar"""
-        self.usuarios.append(
-            Estudiante("Ana López", "EST001", "ana@universidad.edu", 
-                      "Ingeniería de Sistemas", 5)
-        )
-        self.usuarios.append(
-            Estudiante("Carlos Ruiz", "EST002", "carlos@universidad.edu", 
-                      "Medicina", 8)
-        )
-        self.usuarios.append(
-            Profesor("Dr. Martínez", "PROF001", "martinez@universidad.edu", 
-                    "Matemáticas")
-        )
-        self.usuarios.append(
-            Profesor("Dra. Gómez", "PROF002", "gomez@universidad.edu", 
-                    "Literatura")
-        )
-        self.usuarios.append(
-            Investigador("Dr. Rodríguez", "INV001", "rodriguez@instituto.edu", 
-                        "Inteligencia Artificial")
-        )
-        self.usuarios.append(
-            UsuarioPublico("Juan Torres", "PUB001", "juan@email.com")
-        )
+    def agregar_estudiante(self, nombre, id, email, carrera, semestre):
+        u = Estudiante(nombre, id, email, carrera, semestre)
+        self.usuarios.append(u)
+        if self.storage.save_usuarios(self.usuarios):
+            print(f"✅ Estudiante agregado: {id}")
+            return True
+        return False
     
-    def mostrar_menu_principal(self):
-        print("\n" + "="*60)
-        print("👥 SISTEMA DE GESTIÓN DE USUARIOS")
-        print("="*60)
-        print("1. 👤 Crear nuevo usuario")
-        print("2. 👀 Ver todos los usuarios")
-        print("3. 🔍 Buscar usuario por ID")
-        print("4. 📋 Ver reporte de usuario")
-        print("5. 📚 Simular préstamo")
-        print("6. 🎯 Demostrar polimorfismo")
-        print("7. 🔒 Demostrar encapsulamiento")
-        print("8. 📊 Estadísticas del sistema")
-        print("0. 🚪 Salir")
-        print("-"*60)
+    def agregar_profesor(self, nombre, id, email, departamento):
+        u = Profesor(nombre, id, email, departamento)
+        self.usuarios.append(u)
+        if self.storage.save_usuarios(self.usuarios):
+            print(f"✅ Profesor agregado: {id}")
+            return True
+        return False
     
-    def mostrar_menu_creacion(self):
-        print("\n" + "="*40)
-        print("👤 CREAR NUEVO USUARIO")
-        print("="*40)
+    def agregar_investigador(self, nombre, id, email, area):
+        u = Investigador(nombre, id, email, area)
+        self.usuarios.append(u)
+        if self.storage.save_usuarios(self.usuarios):
+            print(f"✅ Investigador agregado: {id}")
+            return True
+        return False
+    
+    def agregar_publico(self, nombre, id, email):
+        u = UsuarioPublico(nombre, id, email)
+        self.usuarios.append(u)
+        if self.storage.save_usuarios(self.usuarios):
+            print(f"✅ Usuario público agregado: {id}")
+            return True
+        return False
+    
+    def obtener_todos(self): return self.usuarios
+    
+    def buscar_por_id(self, id):
+        for u in self.usuarios:
+            if u.get_identificacion() == id: return u
+        return None
+    
+    def puede_solicitar(self, id):
+        usuario = self.buscar_por_id(id)
+        if not usuario: return False, "Usuario no encontrado"
+        activos = len([p for p in usuario.get_historial_prestamos() if p['estado'] == 'activo'])
+        limite = usuario.obtener_limite_prestamos()
+        if activos >= limite: return False, f"Límite alcanzado ({activos}/{limite})"
+        return True, f"Puede solicitar ({activos}/{limite})"
+    
+    def prestar_material(self, id, material):
+        usuario = self.buscar_por_id(id)
+        if not usuario: return False, "Usuario no encontrado"
+        puede, mensaje = self.puede_solicitar(id)
+        if not puede: return False, mensaje
+        if usuario.agregar_prestamo(material):
+            if self.storage.save_usuarios(self.usuarios):
+                return True, f"Préstamo exitoso ({usuario.calcular_dias_prestamo()} días)"
+        return False, "Error al agregar préstamo"
+
+class MaterialSimulado:
+    def __init__(self, codigo, titulo):
+        self.__codigo = codigo
+        self.__titulo = titulo
+    def get_codigo_unico(self): return self.__codigo
+    def get_titulo(self): return self.__titulo
+    def __str__(self): return f"{self.__codigo} - {self.__titulo}"
+
+class UsuarioMenu:
+    def __init__(self):
+        self.service = UsuarioService()
+        self.materiales = [
+            MaterialSimulado("LF001", "Cien Años de Soledad"),
+            MaterialSimulado("LE001", "Python Crash Course"),
+            MaterialSimulado("RV001", "National Geographic"),
+            MaterialSimulado("AL001", "1984 Audiolibro")
+        ]
+    
+    def mostrar_menu(self):
+        print("\n" + "="*50)
+        print("👥 SISTEMA DE USUARIOS Y MEMBRESÍAS")
+        print("="*50)
+        print("1. Ver todos los usuarios")
+        print("2. Agregar nuevo usuario")
+        print("3. Buscar usuario por ID")
+        print("4. Realizar préstamo")
+        print("5. Ver privilegios")
+        print("6. Demostrar polimorfismo")
+        print("7. Demostrar encapsulamiento")
+        print("8. Verificar clase abstracta")
+        print("0. Salir")
+        print("-"*50)
+    
+    def get_input(self, prompt, tipo=str):
+        while True:
+            try:
+                valor = input(prompt).strip()
+                if tipo == int: return int(valor)
+                return valor
+            except: print("❌ Valor inválido")
+    
+    def ver_todos(self):
+        usuarios = self.service.obtener_todos()
+        if not usuarios: print("❌ No hay usuarios"); return
+        print("\n📋 USUARIOS:")
+        for u in usuarios: print(f"  {u}")
+        print(f"📊 Total: {len(usuarios)}")
+    
+    def agregar_usuario(self):
+        print("\n📝 TIPO DE USUARIO:")
         print("1. Estudiante")
         print("2. Profesor")
         print("3. Investigador")
         print("4. Usuario Público")
-        print("0. Volver")
-        print("-"*40)
+        tipo = self.get_input("Opción: ", int)
+        nombre = self.get_input("Nombre: ")
+        id = self.get_input("Identificación: ")
+        email = self.get_input("Email: ")
+        
+        if tipo == 1:
+            carrera = self.get_input("Carrera: ")
+            semestre = self.get_input("Semestre: ", int)
+            self.service.agregar_estudiante(nombre, id, email, carrera, semestre)
+        elif tipo == 2:
+            depto = self.get_input("Departamento: ")
+            self.service.agregar_profesor(nombre, id, email, depto)
+        elif tipo == 3:
+            area = self.get_input("Área investigación: ")
+            self.service.agregar_investigador(nombre, id, email, area)
+        elif tipo == 4:
+            self.service.agregar_publico(nombre, id, email)
+        else: print("❌ Opción inválida")
     
-    def obtener_entrada(self, mensaje, tipo=str):
-        while True:
-            try:
-                entrada = input(f"{mensaje}: ").strip()
-                if tipo == int:
-                    return int(entrada)
-                elif tipo == float:
-                    return float(entrada)
-                return entrada
-            except ValueError:
-                print("❌ Entrada inválida. Intente nuevamente.")
+    def buscar_usuario(self):
+        id = self.get_input("ID: ")
+        usuario = self.service.buscar_por_id(id)
+        if usuario:
+            print(f"\n✅ Encontrado: {usuario}")
+            print(f"   Límite: {usuario.obtener_limite_prestamos()} libros")
+            print(f"   Días: {usuario.calcular_dias_prestamo()} días")
+        else: print("❌ No encontrado")
     
-    def crear_estudiante(self):
-        print("\n--- CREAR ESTUDIANTE ---")
-        nombre = self.obtener_entrada("Nombre completo")
-        identificacion = self.obtener_entrada("Identificación")
-        email = self.obtener_entrada("Email")
-        carrera = self.obtener_entrada("Carrera")
-        semestre = self.obtener_entrada("Semestre", int)
+    def realizar_prestamo(self):
+        id = self.get_input("ID usuario: ")
+        usuario = self.service.buscar_por_id(id)
+        if not usuario: print("❌ Usuario no encontrado"); return
+        
+        puede, mensaje = self.service.puede_solicitar(id)
+        print(f"\n👤 {usuario.get_nombre()}")
+        print(f"📊 Estado: {mensaje}")
+        
+        if not puede: print("❌ No puede solicitar más préstamos"); return
+        
+        print("\n📚 Materiales disponibles:")
+        for i, m in enumerate(self.materiales, 1):
+            print(f"  {i}. {m}")
         
         try:
-            estudiante = Estudiante(nombre, identificacion, email, carrera, semestre)
-            self.usuarios.append(estudiante)
-            print(f"✅ Estudiante '{nombre}' creado exitosamente!")
-        except ValueError as e:
-            print(f"❌ Error: {e}")
+            opc = self.get_input("Seleccione material (número): ", int)
+            if 1 <= opc <= len(self.materiales):
+                material = self.materiales[opc-1]
+                exito, msg = self.service.prestar_material(id, material)
+                if exito: print(f"✅ {msg}")
+                else: print(f"❌ {msg}")
+            else: print("❌ Opción inválida")
+        except: print("❌ Error")
     
-    def crear_profesor(self):
-        print("\n--- CREAR PROFESOR ---")
-        nombre = self.obtener_entrada("Nombre completo")
-        identificacion = self.obtener_entrada("Identificación")
-        email = self.obtener_entrada("Email")
-        departamento = self.obtener_entrada("Departamento")
+    def ver_privilegios(self):
+        id = self.get_input("ID usuario: ")
+        usuario = self.service.buscar_por_id(id)
+        if not usuario: print("❌ No encontrado"); return
         
-        try:
-            profesor = Profesor(nombre, identificacion, email, departamento)
-            self.usuarios.append(profesor)
-            print(f"✅ Profesor '{nombre}' creado exitosamente!")
-        except ValueError as e:
-            print(f"❌ Error: {e}")
-    
-    def crear_investigador(self):
-        print("\n--- CREAR INVESTIGADOR ---")
-        nombre = self.obtener_entrada("Nombre completo")
-        identificacion = self.obtener_entrada("Identificación")
-        email = self.obtener_entrada("Email")
-        area = self.obtener_entrada("Área de investigación")
+        print(f"\n👑 PRIVILEGIOS DE {usuario.get_nombre().upper()}:")
+        print(f"  Tipo: {usuario.obtener_privilegios()}")
+        print(f"  Límite préstamos: {usuario.obtener_limite_prestamos()}")
+        print(f"  Días por préstamo: {usuario.calcular_dias_prestamo()}")
         
-        try:
-            investigador = Investigador(nombre, identificacion, email, area)
-            self.usuarios.append(investigador)
-            print(f"✅ Investigador '{nombre}' creado exitosamente!")
-        except ValueError as e:
-            print(f"❌ Error: {e}")
-    
-    def crear_usuario_publico(self):
-        print("\n--- CREAR USUARIO PÚBLICO ---")
-        nombre = self.obtener_entrada("Nombre completo")
-        identificacion = self.obtener_entrada("Identificación")
-        email = self.obtener_entrada("Email")
-        
-        try:
-            usuario = UsuarioPublico(nombre, identificacion, email)
-            self.usuarios.append(usuario)
-            print(f"✅ Usuario público '{nombre}' creado exitosamente!")
-        except ValueError as e:
-            print(f"❌ Error: {e}")
-    
-    def ver_usuarios(self):
-        if not self.usuarios:
-            print("\n📭 No hay usuarios registrados.")
-            return
-        
-        print("\n" + "="*80)
-        print("👥 LISTA DE USUARIOS")
-        print("="*80)
-        for i, usuario in enumerate(self.usuarios, 1):
-            print(f"{i}. {usuario}")
-        print("-"*80)
-        print(f"Total: {len(self.usuarios)} usuarios")
-    
-    def buscar_por_id(self):
-        identificacion = self.obtener_entrada("\n🔍 Ingrese identificación a buscar")
-        
-        for usuario in self.usuarios:
-            if usuario.get_identificacion() == identificacion:
-                print("\n✅ USUARIO ENCONTRADO:")
-                print(usuario)
-                return
-        
-        print(f"❌ No se encontró usuario con ID: {identificacion}")
-    
-    def ver_reporte_usuario(self):
-        if not self.usuarios:
-            print("\n📭 No hay usuarios para reportes.")
-            return
-        
-        self.ver_usuarios()
-        try:
-            opcion = self.obtener_entrada("\n📋 Ingrese número de usuario para reporte", int) - 1
-            if 0 <= opcion < len(self.usuarios):
-                usuario = self.usuarios[opcion]
-                reporte = usuario.generar_reporte()
-                
-                print("\n" + "="*60)
-                print(f"📄 REPORTE DE {usuario.get_nombre().upper()}")
-                print("="*60)
-                for clave, valor in reporte.items():
-                    if clave == 'privilegios':
-                        print(f"\n{clgue.replace('_', ' ').title()}:")
-                        for privilegio in valor:
-                            print(f"  • {privilegio}")
-                    else:
-                        print(f"{clave.replace('_', ' ').title()}: {valor}")
-        except (ValueError, IndexError):
-            print("❌ Opción inválida")
-    
-    def simular_prestamo(self):
-        if not self.usuarios:
-            print("\n📭 No hay usuarios para préstamos.")
-            return
-        
-        # Importar Material de ejemplo del Ejercicio 1.1
-        try:
-            from ejercicio_1_1_menu import LibroFisico
-            libro = LibroFisico("Libro de Préstamo", "Autor", 2023, 
-                               "TEST001", 200, "Editorial", "bueno")
-        except ImportError:
-            print("⚠️  No se pudo importar MaterialBibliografico")
-            print("   Ejecute primero el Ejercicio 1.1 o cree un material manual")
-            return
-        
-        self.ver_usuarios()
-        try:
-            opcion = self.obtener_entrada("\n📚 Seleccione usuario para préstamo", int) - 1
-            if 0 <= opcion < len(self.usuarios):
-                usuario = self.usuarios[opcion]
-                
-                print(f"\n💼 Usuario seleccionado: {usuario.get_nombre()}")
-                print(f"   Límite de préstamos: {usuario.obtener_limite_prestamos()}")
-                print(f"   Días de préstamo: {usuario.calcular_dias_prestamo()}")
-                
-                # Intentar hacer préstamo
-                if usuario.agregar_prestamo(libro):
-                    print(f"✅ Préstamo exitoso!")
-                    print(f"   Material: {libro.get_titulo()}")
-                    
-                    # Verificar límite
-                    for i in range(usuario.obtener_limite_prestamos()):
-                        if not usuario.agregar_prestamo(libro):
-                            print(f"❌ Límite alcanzado en préstamo {i+2}")
-                            break
-                else:
-                    print("❌ No se pudo realizar el préstamo")
-                    
-        except (ValueError, IndexError):
-            print("❌ Opción inválida")
+        reporte = usuario.generar_reporte()
+        print(f"  Préstamos activos: {reporte['activos']}/{reporte['limite']}")
     
     def demostrar_polimorfismo(self):
-        if not self.usuarios:
-            print("\n📭 No hay usuarios para demostrar.")
-            return
+        print("\n🎯 DEMOSTRACIÓN DE POLIMORFISMO")
+        print("-"*40)
+        usuarios = [
+            Estudiante("Ana", "E001", "ana@edu.com", "Ingeniería", 5),
+            Profesor("Dr. Martínez", "P001", "martinez@edu.com", "Matemáticas"),
+            Investigador("Dr. Rodríguez", "I001", "rodriguez@lab.com", "Biología"),
+            UsuarioPublico("Juan", "U001", "juan@email.com")
+        ]
         
-        print("\n" + "="*60)
-        print("🎯 DEMOSTRACIÓN DE POLIMORFISMO")
-        print("="*60)
-        print("Mismo método obtener_privilegios(), diferentes resultados:")
-        print("-"*60)
+        print("👥 Usuarios creados:")
+        for u in usuarios: print(f"  {u}")
         
-        for usuario in self.usuarios:
-            privilegios = usuario.obtener_privilegios()
-            print(f"\n{usuario.__class__.__name__}:")
-            for p in privilegios[:3]:  # Mostrar solo 3 privilegios
-                print(f"  • {p}")
-            if len(privilegios) > 3:
-                print(f"  • ... y {len(privilegios)-3} más")
+        print("\n📊 Límites y privilegios:")
+        for u in usuarios:
+            print(f"  {u.obtener_privilegios():<20} → {u.obtener_limite_prestamos():2} libros, {u.calcular_dias_prestamo():2} días")
         
-        print("\n" + "-"*60)
-        print("Mismo método generar_reporte(), estructura diferente:")
-        print("-"*60)
-        
-        for usuario in self.usuarios[:2]:  # Mostrar solo 2 ejemplos
-            reporte = usuario.generar_reporte()
-            print(f"\n{usuario.__class__.__name__}:")
-            print(f"  Límite: {reporte['limite_prestamos']} | Días: {reporte['dias_prestamo']}")
+        print("\n✅ Polimorfismo demostrado")
     
     def demostrar_encapsulamiento(self):
-        print("\n" + "="*60)
-        print("🔒 DEMOSTRACIÓN DE ENCAPSULAMIENTO")
-        print("="*60)
+        print("\n🔒 DEMOSTRACIÓN DE ENCAPSULAMIENTO")
+        print("-"*40)
+        usuario = Estudiante("Test", "TEST", "test@test.com", "Test", 1)
         
-        if not self.usuarios:
-            print("❌ No hay usuarios para demostrar")
-            return
+        print("✅ Acceso mediante getters:")
+        print(f"  Nombre: {usuario.get_nombre()}")
+        print(f"  Email: {usuario.get_email()}")
         
-        usuario = self.usuarios[0]
+        print("\n✅ Validación en setters:")
+        try: usuario.set_email("emailinvalido")
+        except ValueError as e: print(f"  ✅ Correcto: {e}")
         
-        print("1. Intentando acceder a atributos privados directamente:")
-        print("   usuario.__nombre → Generará AttributeError")
-        
-        try:
-            print(f"   Intento: {usuario.__nombre}")
-        except AttributeError:
-            print("   ✅ CORRECTO: AttributeError al acceder a __nombre")
-        
-        print("\n2. Usando getters y setters con validación:")
-        print(f"   Email actual: {usuario.get_email()}")
-        
-        # Intentar asignar email inválido
-        try:
-            usuario.set_email("email-invalido")
-        except ValueError as e:
-            print(f"   ❌ Setter bloquea email inválido: {e}")
-        
-        # Asignar email válido
-        try:
-            usuario.set_email("nuevo@email.com")
-            print(f"   ✅ Setter acepta email válido: {usuario.get_email()}")
-        except ValueError as e:
-            print(f"   ❌ Error: {e}")
-        
-        print("\n3. Historial protegido (solo lectura):")
-        historial = usuario.get_historial_prestamos()
-        print(f"   Historial obtenido como copia: {len(historial)} préstamos")
-        print("   Modificar la copia no afecta el original")
+        print("\n❌ Intentando acceso directo:")
+        try: print(f"  usuario.__nombre = {usuario.__nombre}")
+        except AttributeError: print("  ✅ Correcto: No se puede acceder directamente")
     
-    def mostrar_estadisticas(self):
-        if not self.usuarios:
-            print("\n📭 No hay usuarios para estadísticas.")
-            return
-        
-        print("\n" + "="*60)
-        print("📊 ESTADÍSTICAS DEL SISTEMA DE USUARIOS")
-        print("="*60)
-        
-        # Contar por tipo
-        tipos = {}
-        total_prestamos = 0
-        
-        for usuario in self.usuarios:
-            tipo = usuario.__class__.__name__
-            tipos[tipo] = tipos.get(tipo, 0) + 1
-            total_prestamos += len(usuario.get_historial_prestamos())
-        
-        print("📈 Distribución por tipo de usuario:")
-        for tipo, cantidad in tipos.items():
-            print(f"   {tipo}: {cantidad} usuarios")
-        
-        print(f"\n👥 Total de usuarios: {len(self.usuarios)}")
-        print(f"📚 Total de préstamos simulados: {total_prestamos}")
-        
-        # Calcular promedios
-        if self.usuarios:
-            promedios = {}
-            for tipo in tipos.keys():
-                usuarios_tipo = [u for u in self.usuarios if u.__class__.__name__ == tipo]
-                if usuarios_tipo:
-                    prestamos_tipo = sum(len(u.get_historial_prestamos()) for u in usuarios_tipo)
-                    promedios[tipo] = prestamos_tipo / len(usuarios_tipo)
-            
-            print("\n📊 Promedio de préstamos por usuario:")
-            for tipo, promedio in promedios.items():
-                print(f"   {tipo}: {promedio:.1f} préstamos/usuario")
+    def verificar_clase_abstracta(self):
+        print("\n⚠️ VERIFICANDO CLASE ABSTRACTA")
+        print("-"*40)
+        try: usuario = Usuario("Test", "TEST", "test@test.com")
+        except (TypeError, NotImplementedError) as e: print(f"✅ Correcto: {e}")
     
-    def ejecutar(self):
+    def run(self):
+        print("🚀 INICIANDO SISTEMA DE USUARIOS...")
         while True:
-            self.mostrar_menu_principal()
-            opcion = self.obtener_entrada("Seleccione una opción", int)
-            
-            if opcion == 0:
-                print("\n👋 ¡Gracias por usar el sistema de usuarios!")
-                break
-            
-            elif opcion == 1:
-                while True:
-                    self.mostrar_menu_creacion()
-                    sub_opcion = self.obtener_entrada("Seleccione tipo de usuario", int)
-                    
-                    if sub_opcion == 0:
-                        break
-                    elif sub_opcion == 1:
-                        self.crear_estudiante()
-                    elif sub_opcion == 2:
-                        self.crear_profesor()
-                    elif sub_opcion == 3:
-                        self.crear_investigador()
-                    elif sub_opcion == 4:
-                        self.crear_usuario_publico()
-                    else:
-                        print("❌ Opción inválida")
-            
-            elif opcion == 2:
-                self.ver_usuarios()
-            
-            elif opcion == 3:
-                self.buscar_por_id()
-            
-            elif opcion == 4:
-                self.ver_reporte_usuario()
-            
-            elif opcion == 5:
-                self.simular_prestamo()
-            
-            elif opcion == 6:
-                self.demostrar_polimorfismo()
-            
-            elif opcion == 7:
-                self.demostrar_encapsulamiento()
-            
-            elif opcion == 8:
-                self.mostrar_estadisticas()
-            
-            else:
-                print("❌ Opción inválida")
-            
-            if opcion != 0:
-                input("\n⏎ Presione Enter para continuar...")
+            self.mostrar_menu()
+            opcion = self.get_input("Opción: ", str)
+            if opcion == "0": print("👋 ¡Adiós!"); break
+            elif opcion == "1": self.ver_todos()
+            elif opcion == "2": self.agregar_usuario()
+            elif opcion == "3": self.buscar_usuario()
+            elif opcion == "4": self.realizar_prestamo()
+            elif opcion == "5": self.ver_privilegios()
+            elif opcion == "6": self.demostrar_polimorfismo()
+            elif opcion == "7": self.demostrar_encapsulamiento()
+            elif opcion == "8": self.verificar_clase_abstracta()
+            else: print("❌ Opción inválida")
+            if opcion != "0": input("\n⏎ Presiona Enter...")
 
-# ========== PROGRAMA PRINCIPAL ==========
-if __name__ == "__main__":
-    print("="*60)
-    print("EJERCICIO 1.2: SISTEMA DE USUARIOS Y MEMBRESÍAS")
-    print("="*60)
-    
-    # Demostrar que no se puede instanciar clase abstracta
-    print("\n🔍 Demostrando ABSTRACCIÓN:")
-    try:
-        # Intentar crear objeto de clase abstracta
-        usuario = Usuario("Test", "123", "test@email.com")
-        print("❌ ERROR: No debería poder instanciarse")
-    except NotImplementedError as e:
-        print(f"✅ CORRECTO: No se puede instanciar Usuario base")
-        print(f"   Error: {e}")
-    
-    input("\n⏎ Presione Enter para iniciar el sistema interactivo...")
-    
-    # Iniciar menú interactivo
-    sistema = MenuUsuarios()
-    sistema.ejecutar()
+menu = UsuarioMenu()
+menu.run()
