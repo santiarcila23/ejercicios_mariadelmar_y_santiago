@@ -2,978 +2,616 @@
 EJERCICIO 1.4: SISTEMA DE REPORTES Y ESTADÍSTICAS
 """
 
-from datetime import datetime, timedelta
 import json
 import csv
+from datetime import datetime
 from io import StringIO
 
 class Reporte:
     def __init__(self, titulo_reporte, generado_por):
         self.__titulo_reporte = titulo_reporte
-        self.__fecha_generacion = datetime.now()
+        self.__fecha_generacion = datetime.now().isoformat()
         self.__generado_por = generado_por
         self._datos = []
     
-    def get_titulo_reporte(self):
-        return self.__titulo_reporte
+    def get_titulo_reporte(self): return self.__titulo_reporte
+    def set_titulo_reporte(self, valor):
+        if not valor.strip(): raise ValueError("Título vacío")
+        self.__titulo_reporte = valor
     
-    def get_fecha_generacion(self):
-        return self.__fecha_generacion
+    def get_fecha_generacion(self): return self.__fecha_generacion
+    def get_generado_por(self): return self.__generado_por
+    def set_generado_por(self, valor):
+        if not valor.strip(): raise ValueError("Generador vacío")
+        self.__generado_por = valor
     
-    def get_generado_por(self):
-        return self.__generado_por
+    def generar_contenido(self): raise NotImplementedError("Abstracto")
+    def exportar_formato(self, formato): raise NotImplementedError("Abstracto")
     
-    def obtener_fecha_generacion(self):
-        return self.__fecha_generacion.strftime("%d/%m/%Y %H:%M:%S")
+    def __procesar_datos(self, datos):
+        if not datos: return []
+        return [d for d in datos if d]
     
-    def generar_contenido(self):
-        raise NotImplementedError("Método debe implementarse")
+    def __calcular_estadisticas(self, datos):
+        if not datos: return {"total": 0}
+        try:
+            nums = [float(d) for d in datos if isinstance(d, (int, float)) or (isinstance(d, str) and d.replace('.', '').isdigit())]
+            if nums:
+                return {
+                    "total": len(datos),
+                    "promedio": sum(nums) / len(nums),
+                    "minimo": min(nums),
+                    "maximo": max(nums)
+                }
+        except: pass
+        return {"total": len(datos)}
     
-    def exportar_formato(self, formato="texto"):
-        raise NotImplementedError("Método debe implementarse")
+    def obtener_fecha_formateada(self):
+        return datetime.fromisoformat(self.__fecha_generacion).strftime("%d/%m/%Y %H:%M")
     
     def visualizar(self):
         contenido = self.generar_contenido()
-        print(f"\n{'='*60}")
-        print(f"📊 {self.__titulo_reporte}")
-        print(f"{'='*60}")
-        print(f"📅 Generado: {self.obtener_fecha_generacion()}")
-        print(f"👤 Por: {self.__generado_por}")
-        print(f"{'-'*60}")
+        print(f"\n{'='*50}")
+        print(f"📊 REPORTE: {self.__titulo_reporte}")
+        print(f"{'='*50}")
+        print(f"👤 Generado por: {self.__generado_por}")
+        print(f"📅 Fecha: {self.obtener_fecha_formateada()}")
+        print(f"{'-'*50}")
         
         if isinstance(contenido, dict):
-            for clave, valor in contenido.items():
-                if clave != 'Detalles':
-                    print(f"{clave}: {valor}")
-            
-            if 'Detalles' in contenido and contenido['Detalles']:
-                print(f"\n📋 Detalles:")
-                for detalle in contenido['Detalles'][:5]:  # Mostrar solo 5
-                    if isinstance(detalle, dict):
-                        print(f"  - {list(detalle.values())[0]}")
-                    else:
-                        print(f"  - {detalle}")
-                if len(contenido['Detalles']) > 5:
-                    print(f"  ... y {len(contenido['Detalles']) - 5} más")
+            for k, v in contenido.items():
+                print(f"{k}: {v}")
+        elif isinstance(contenido, list):
+            for item in contenido:
+                print(f"- {item}")
         else:
             print(contenido)
-        
-        print(f"{'='*60}")
     
-    def __str__(self):
-        return f"Reporte: {self.__titulo_reporte}"
+    def __str__(self): return f"Reporte: {self.__titulo_reporte}"
 
 class ReportePrestamos(Reporte):
-    def __init__(self, generado_por, filtro_fecha_inicio=None, filtro_fecha_fin=None):
-        super().__init__("REPORTE DE PRÉSTAMOS", generado_por)
-        self.__filtro_fecha_inicio = filtro_fecha_inicio or (datetime.now() - timedelta(days=30))
-        self.__filtro_fecha_fin = filtro_fecha_fin or datetime.now()
+    def __init__(self, titulo, generador, fecha_inicio, fecha_fin):
+        super().__init__(titulo, generador)
+        self.__fecha_inicio = fecha_inicio
+        self.__fecha_fin = fecha_fin
+        self.__datos_prestamos = []
     
-    def _procesar_datos(self, transacciones):
-        datos_procesados = []
-        for trans in transacciones:
-            if hasattr(trans, 'get_fecha') and self.__filtro_fecha_inicio <= trans.get_fecha() <= self.__filtro_fecha_fin:
-                datos_procesados.append({
-                    'id': trans.get_id_transaccion(),
-                    'usuario': trans.get_usuario().get_nombre() if hasattr(trans.get_usuario(), 'get_nombre') else "N/A",
-                    'material': trans.get_material().get_titulo() if hasattr(trans.get_material(), 'get_titulo') else "N/A",
-                    'fecha': trans.get_fecha().strftime("%d/%m/%Y"),
-                    'estado': trans.get_estado(),
-                    'costo': f"${trans.calcular_costo():.2f}" if hasattr(trans, 'calcular_costo') else "$0.00"
-                })
-        return datos_procesados
-    
-    def _calcular_estadisticas(self, datos):
-        if not datos:
-            return {'aprobados': 0, 'pendientes': 0, 'ingresos': 0, 'total': 0}
-        
-        aprobados = sum(1 for d in datos if d['estado'] == 'aprobada')
-        pendientes = sum(1 for d in datos if d['estado'] == 'pendiente')
-        
-        # Extraer valores numéricos de costo
-        ingresos = 0
-        for d in datos:
-            try:
-                costo_str = d['costo'].replace('$', '').replace(',', '')
-                ingresos += float(costo_str)
-            except:
-                pass
-        
-        return {
-            'aprobados': aprobados,
-            'pendientes': pendientes,
-            'ingresos': ingresos,
-            'total': len(datos)
-        }
+    def agregar_prestamo(self, usuario, material, fecha, estado):
+        self.__datos_prestamos.append({
+            'usuario': usuario,
+            'material': material,
+            'fecha': fecha,
+            'estado': estado
+        })
     
     def generar_contenido(self):
-        # Intentar obtener datos de ejercicios anteriores
-        transacciones = []
-        try:
-            from ejercicio_1_3_menu import Prestamo, Renovacion, Reserva, Devolucion
-            from ejercicio_1_1_menu import LibroFisico
-            from ejercicio_1_2_menu import Estudiante
-            
-            # Crear datos de ejemplo si no hay
-            usuario_ej = Estudiante("Ejemplo", "123", "ej@email.com", "Carrera", 3)
-            material_ej = LibroFisico("Libro Ej", "Autor", 2023, "EJ", 200, "Ed", "bueno")
-            
-            # Crear transacciones de ejemplo
-            transacciones = [
-                Prestamo("P-001", usuario_ej, material_ej),
-                Renovacion("R-001", usuario_ej, material_ej, None),
-                Reserva("RS-001", usuario_ej, material_ej),
-                Devolucion("D-001", usuario_ej, material_ej, None)
-            ]
-            
-            for t in transacciones:
-                t.procesar_transaccion()
-                
-        except ImportError:
-            # Si no se pueden importar, usar datos simulados
-            print("⚠️  Usando datos simulados para el reporte")
-            transacciones = []  # Lista vacía para datos simulados
+        filtrados = []
+        for p in self.__datos_prestamos:
+            if self.__fecha_inicio <= p['fecha'] <= self.__fecha_fin:
+                filtrados.append(p)
         
-        self._datos = self._procesar_datos(transacciones)
-        estadisticas = self._calcular_estadisticas(self._datos)
+        self._datos = self._Reporte__procesar_datos(filtrados)
+        
+        activos = len([p for p in self._datos if p['estado'] == 'activo'])
+        devueltos = len([p for p in self._datos if p['estado'] == 'devuelto'])
+        atrasados = len([p for p in self._datos if p['estado'] == 'atrasado'])
         
         return {
-            'Total préstamos': estadisticas['total'],
-            'Período': f"{self.__filtro_fecha_inicio.strftime('%d/%m/%Y')} - {self.__filtro_fecha_fin.strftime('%d/%m/%Y')}",
-            'Préstamos aprobados': estadisticas['aprobados'],
-            'Préstamos pendientes': estadisticas['pendientes'],
-            'Ingresos totales': f"${estadisticas['ingresos']:.2f}",
-            'Detalles': self._datos
+            'Título': self.get_titulo_reporte(),
+            'Período': f"{self.__fecha_inicio} a {self.__fecha_fin}",
+            'Total préstamos': len(self._datos),
+            'Activos': activos,
+            'Devueltos': devueltos,
+            'Atrasados': atrasados,
+            'Tasa devolución': f"{(devueltos/len(self._datos)*100):.1f}%" if self._datos else "0%"
         }
     
     def exportar_formato(self, formato="texto"):
         contenido = self.generar_contenido()
         
-        if formato == "texto":
-            resultado = f"Reporte: {self.get_titulo_reporte()}\n"
-            resultado += f"Generado: {self.obtener_fecha_generacion()}\n"
-            resultado += f"Por: {self.get_generado_por()}\n"
-            resultado += f"Período: {contenido['Período']}\n\n"
-            
-            for clave, valor in contenido.items():
-                if clave not in ['Período', 'Detalles']:
-                    resultado += f"{clave}: {valor}\n"
-            
-            resultado += "\n📋 Detalles:\n"
-            for detalle in contenido['Detalles']:
-                resultado += f"- {detalle}\n"
-            
-            return resultado
-        
-        elif formato == "json":
+        if formato.lower() == "json":
             return json.dumps(contenido, indent=2, ensure_ascii=False)
         
-        elif formato == "csv":
+        elif formato.lower() == "csv":
             output = StringIO()
             writer = csv.writer(output)
-            
-            # Encabezado
-            writer.writerow(['REPORTE DE PRÉSTAMOS'])
-            writer.writerow(['Generado:', self.obtener_fecha_generacion()])
-            writer.writerow(['Por:', self.get_generado_por()])
-            writer.writerow([])
-            
-            # Estadísticas
-            writer.writerow(['ESTADÍSTICAS'])
             writer.writerow(['Campo', 'Valor'])
-            for clave, valor in contenido.items():
-                if clave != 'Detalles':
-                    writer.writerow([clave, valor])
-            
-            # Detalles
-            if contenido['Detalles']:
-                writer.writerow([])
-                writer.writerow(['DETALLES DE PRÉSTAMOS'])
-                headers = contenido['Detalles'][0].keys()
-                writer.writerow(headers)
-                for fila in contenido['Detalles']:
-                    writer.writerow(fila.values())
-            
+            for k, v in contenido.items():
+                writer.writerow([k, v])
             return output.getvalue()
         
-        return "Formato no soportado"
+        else:
+            lines = []
+            for k, v in contenido.items():
+                lines.append(f"{k}: {v}")
+            return "\n".join(lines)
 
 class ReporteMateriales(Reporte):
-    def __init__(self, generado_por, ordenar_por="mas_prestados"):
-        super().__init__("REPORTE DE MATERIALES", generado_por)
+    def __init__(self, titulo, generador, ordenar_por="mas_prestados"):
+        super().__init__(titulo, generador)
         self.__ordenar_por = ordenar_por
+        self.__datos_materiales = []
     
-    def _procesar_datos(self, materiales):
-        # Datos simulados de préstamos por material
-        prestamos_simulados = {
-            "LIB001": 15, "LIB002": 8, "ELE001": 25, "ELE002": 12,
-            "REV001": 5, "REV002": 3, "AUD001": 18, "AUD002": 10
-        }
-        
-        datos_procesados = []
-        for material in materiales:
-            veces_prestado = prestamos_simulados.get(material.get_codigo_unico(), 0)
-            
-            datos_procesados.append({
-                'código': material.get_codigo_unico(),
-                'título': material.get_titulo(),
-                'tipo': material.obtener_tipo_material(),
-                'autor': material.get_autor(),
-                'año': material.get_año_publicacion(),
-                'préstamos': veces_prestado
-            })
-        
-        # Ordenar según criterio
+    def agregar_material(self, titulo, autor, prestamos):
+        self.__datos_materiales.append({
+            'titulo': titulo,
+            'autor': autor,
+            'prestamos': prestamos
+        })
+    
+    def generar_contenido(self):
         if self.__ordenar_por == "mas_prestados":
-            datos_procesados.sort(key=lambda x: x['préstamos'], reverse=True)
+            ordenados = sorted(self.__datos_materiales, key=lambda x: x['prestamos'], reverse=True)
         elif self.__ordenar_por == "menos_prestados":
-            datos_procesados.sort(key=lambda x: x['préstamos'])
+            ordenados = sorted(self.__datos_materiales, key=lambda x: x['prestamos'])
         elif self.__ordenar_por == "titulo":
-            datos_procesados.sort(key=lambda x: x['título'])
+            ordenados = sorted(self.__datos_materiales, key=lambda x: x['titulo'])
+        else:  # autor
+            ordenados = sorted(self.__datos_materiales, key=lambda x: x['autor'])
         
-        return datos_procesados
-    
-    def _calcular_estadisticas(self, datos):
-        if not datos:
-            return {'mas_solicitado': 'N/A', 'menos_solicitado': 'N/A', 
-                    'promedio': 0, 'total': 0, 'tipos': {}}
+        self._datos = self._Reporte__procesar_datos(ordenados)
         
-        prestamos = [d['préstamos'] for d in datos]
-        tipos = {}
-        for d in datos:
-            tipo = d['tipo']
-            tipos[tipo] = tipos.get(tipo, 0) + 1
+        prestamos = [m['prestamos'] for m in self._datos]
+        stats = self._Reporte__calcular_estadisticas(prestamos)
         
-        return {
-            'mas_solicitado': datos[0]['título'] if datos[0]['préstamos'] > 0 else 'N/A',
-            'menos_solicitado': datos[-1]['título'] if datos[-1]['préstamos'] > 0 else 'N/A',
-            'promedio': sum(prestamos) / len(prestamos) if prestamos else 0,
-            'total': len(datos),
-            'tipos': tipos
+        contenido = {
+            'Título': self.get_titulo_reporte(),
+            'Ordenado por': self.__ordenar_por,
+            'Total materiales': len(self._datos),
+            'Total préstamos': stats['total'],
+            'Promedio préstamos': f"{stats.get('promedio', 0):.1f}",
+            'Más prestado': max(self._datos, key=lambda x: x['prestamos'])['titulo'] if self._datos else "Ninguno"
         }
-    
-    def generar_contenido(self):
-        # Intentar obtener materiales de ejercicios anteriores
-        materiales = []
-        try:
-            from ejercicio_1_1_menu import LibroFisico, LibroElectronico, Revista, Audiolibro
-            
-            # Crear materiales de ejemplo
-            materiales = [
-                LibroFisico("Cien Años de Soledad", "Gabriel García Márquez", 
-                           1967, "LIB001", 471, "Sudamericana", "bueno"),
-                LibroFisico("Don Quijote", "Miguel de Cervantes", 
-                           1605, "LIB002", 863, "Robles", "regular"),
-                LibroElectronico("Python Crash Course", "Eric Matthes", 
-                                2015, "ELE001", 5.2, "PDF", "http://ejemplo.com"),
-                LibroElectronico("Clean Code", "Robert Martin", 
-                                2008, "ELE002", 3.8, "EPUB", "http://ejemplo.com"),
-                Revista("National Geographic", "Varios Autores", 
-                       2023, "REV001", 245, "Octubre"),
-                Revista("Scientific American", "Varios Autores", 
-                       2023, "REV002", 321, "Noviembre"),
-                Audiolibro("El Principito", "Antoine de Saint-Exupéry", 
-                          1943, "AUD001", 120, "Narrador", "MP3"),
-                Audiolibro("1984", "George Orwell", 
-                          1949, "AUD002", 300, "Narrador", "MP3")
-            ]
-        except ImportError:
-            # Si no se pueden importar, usar datos simulados
-            print("⚠️  Usando datos simulados para el reporte")
-            materiales = []  # Lista vacía para datos simulados
         
-        self._datos = self._procesar_datos(materiales)
-        estadisticas = self._calcular_estadisticas(self._datos)
+        # Top 3
+        top3 = ordenados[:3]
+        for i, m in enumerate(top3, 1):
+            contenido[f'Top {i}'] = f"{m['titulo']} ({m['prestamos']})"
         
-        return {
-            'Total materiales': estadisticas['total'],
-            'Ordenado por': self.__ordenar_por.replace('_', ' ').title(),
-            'Material más solicitado': estadisticas['mas_solicitado'],
-            'Material menos solicitado': estadisticas['menos_solicitado'],
-            'Promedio préstamos': f"{estadisticas['promedio']:.1f}",
-            'Distribución por tipo': estadisticas['tipos'],
-            'Detalles': self._datos
-        }
+        return contenido
     
     def exportar_formato(self, formato="texto"):
         contenido = self.generar_contenido()
         
-        if formato == "texto":
-            resultado = f"REPORTE DE MATERIALES\n"
-            resultado += f"{'='*40}\n"
-            resultado += f"Ordenado por: {contenido['Ordenado por']}\n\n"
-            
-            resultado += f"{'CÓDIGO':<10} {'TÍTULO':<25} {'TIPO':<15} {'PRÉSTAMOS':>10}\n"
-            resultado += f"{'-'*60}\n"
-            
-            for detalle in contenido['Detalles']:
-                titulo_corto = detalle['título'][:22] + '...' if len(detalle['título']) > 25 else detalle['título']
-                resultado += f"{detalle['código']:<10} {titulo_corto:<25} {detalle['tipo'][:13]:<15} {detalle['préstamos']:>10}\n"
-            
-            return resultado
-        
-        elif formato == "json":
+        if formato.lower() == "json":
             return json.dumps(contenido, indent=2, ensure_ascii=False)
         
-        return "Formato no soportado"
-
-class ReporteUsuarios(Reporte):
-    def __init__(self, generado_por, tipo_usuario=None, incluir_morosos=True):
-        super().__init__("REPORTE DE USUARIOS", generado_por)
-        self.__tipo_usuario = tipo_usuario
-        self.__incluir_morosos = incluir_morosos
-    
-    def _procesar_datos(self, usuarios):
-        datos_procesados = []
-        for usuario in usuarios:
-            if self.__tipo_usuario and usuario.__class__.__name__ != self.__tipo_usuario:
-                continue
-            
-            # Simular datos de morosidad
-            moroso_simulado = "Moroso" in usuario.get_nombre()
-            
-            if self.__incluir_morosos or not moroso_simulado:
-                prestamos_activos = len([p for p in usuario.get_historial_prestamos() 
-                                        if not p.get('devuelto', False)])
-                
-                datos_procesados.append({
-                    'nombre': usuario.get_nombre(),
-                    'tipo': usuario.__class__.__name__,
-                    'email': usuario.get_email(),
-                    'registro': usuario.get_fecha_registro().strftime("%d/%m/%Y"),
-                    'límite': usuario.obtener_limite_prestamos(),
-                    'días préstamo': usuario.calcular_dias_prestamo(),
-                    'préstamos activos': prestamos_activos,
-                    'moroso': "Sí" if moroso_simulado else "No"
-                })
-        
-        return datos_procesados
-    
-    def _calcular_estadisticas(self, datos):
-        if not datos:
-            return {'morosos': 0, 'promedio_prestamos': 0, 'total': 0, 'tipos': {}}
-        
-        morosos = sum(1 for d in datos if d['moroso'] == "Sí")
-        total_prestamos = sum(d['préstamos activos'] for d in datos)
-        tipos = {}
-        
-        for d in datos:
-            tipo = d['tipo']
-            tipos[tipo] = tipos.get(tipo, 0) + 1
-        
-        return {
-            'morosos': morosos,
-            'promedio_prestamos': total_prestamos / len(datos) if datos else 0,
-            'total': len(datos),
-            'tipos': tipos
-        }
-    
-    def generar_contenido(self):
-        # Intentar obtener usuarios de ejercicios anteriores
-        usuarios = []
-        try:
-            from ejercicio_1_2_menu import Estudiante, Profesor, Investigador, UsuarioPublico
-            
-            # Crear usuarios de ejemplo
-            usuarios = [
-                Estudiante("Ana López", "EST001", "ana@edu.com", "Sistemas", 5),
-                Estudiante("Carlos Ruiz", "EST002", "carlos@edu.com", "Medicina", 8),
-                Estudiante("Estudiante Moroso", "EST003", "moroso@edu.com", "Derecho", 3),
-                Profesor("Dr. Martínez", "PROF001", "martinez@edu.com", "Matemáticas"),
-                Profesor("Dra. Gómez", "PROF002", "gomez@edu.com", "Literatura"),
-                Investigador("Dr. Rodríguez", "INV001", "rodriguez@edu.com", "IA"),
-                UsuarioPublico("Juan Torres", "PUB001", "juan@email.com")
-            ]
-        except ImportError:
-            # Si no se pueden importar, usar datos simulados
-            print("⚠️  Usando datos simulados para el reporte")
-            usuarios = []  # Lista vacía para datos simulados
-        
-        self._datos = self._procesar_datos(usuarios)
-        estadisticas = self._calcular_estadisticas(self._datos)
-        
-        return {
-            'Total usuarios': estadisticas['total'],
-            'Filtro tipo': self.__tipo_usuario or "Todos",
-            'Incluye morosos': "Sí" if self.__incluir_morosos else "No",
-            'Usuarios morosos': estadisticas['morosos'],
-            'Promedio préstamos activos': f"{estadisticas['promedio_prestamos']:.1f}",
-            'Distribución por tipo': estadisticas['tipos'],
-            'Detalles': self._datos
-        }
-    
-    def exportar_formato(self, formato="texto"):
-        contenido = self.generar_contenido()
-        
-        if formato == "texto":
-            resultado = f"REPORTE DE USUARIOS\n"
-            resultado += f"{'='*40}\n"
-            resultado += f"Tipo: {contenido['Filtro tipo']} | Morosos: {contenido['Incluye morosos']}\n\n"
-            
-            resultado += f"{'NOMBRE':<20} {'TIPO':<12} {'EMAIL':<20} {'MOROSO':<6} {'ACTIVOS':>8}\n"
-            resultado += f"{'-'*66}\n"
-            
-            for detalle in contenido['Detalles']:
-                nombre_corto = detalle['nombre'][:18] + '..' if len(detalle['nombre']) > 20 else detalle['nombre']
-                email_corto = detalle['email'][:18] + '..' if len(detalle['email']) > 20 else detalle['email']
-                resultado += f"{nombre_corto:<20} {detalle['tipo'][:10]:<12} {email_corto:<20} {detalle['moroso']:<6} {detalle['préstamos activos']:>8}\n"
-            
-            return resultado
-        
-        elif formato == "json":
-            return json.dumps(contenido, indent=2, ensure_ascii=False)
-        
-        return "Formato no soportado"
-
-class ReporteFinanciero(Reporte):
-    def __init__(self, generado_por, periodo="mensual"):
-        super().__init__("REPORTE FINANCIERO", generado_por)
-        self.__periodo = periodo
-    
-    def generar_contenido(self):
-        # Datos simulados según período
-        ingresos_simulados = {
-            "diario": 150.75,
-            "semanal": 1055.25,
-            "mensual": 4522.50,
-            "anual": 54270.00
-        }
-        
-        multas_simuladas = {
-            "diario": 25.50,
-            "semanal": 178.50,
-            "mensual": 765.00,
-            "anual": 9180.00
-        }
-        
-        ingresos = ingresos_simulados.get(self.__periodo, 0)
-        multas = multas_simuladas.get(self.__periodo, 0)
-        total = ingresos + multas
-        
-        porcentaje_multas = (multas / total * 100) if total > 0 else 0
-        
-        tendencia = "📈 Creciente" if multas < ingresos * 0.1 else "📉 Decreciente"
-        
-        return {
-            'Período': self.__periodo.title(),
-            'Total ingresos préstamos': f"${ingresos:,.2f}",
-            'Total multas por retraso': f"${multas:,.2f}",
-            'Ingresos totales': f"${total:,.2f}",
-            'Porcentaje multas': f"{porcentaje_multas:.1f}%",
-            'Promedio diario': f"${(total / 30):,.2f}" if self.__periodo == 'mensual' else "N/A",
-            'Tendencia': tendencia,
-            'Detalles': [f"Ingresos por {self.__periodo}", f"Multas por {self.__periodo}"]
-        }
-    
-    def exportar_formato(self, formato="texto"):
-        contenido = self.generar_contenido()
-        
-        if formato == "texto":
-            resultado = f"REPORTE FINANCIERO - {self.__periodo.upper()}\n"
-            resultado += f"{'='*40}\n\n"
-            
-            for clave, valor in contenido.items():
-                if clave != 'Detalles':
-                    resultado += f"{clave}: {valor}\n"
-            
-            return resultado
-        
-        elif formato == "json":
-            return json.dumps(contenido, indent=2, ensure_ascii=False)
-        
-        elif formato == "csv":
+        elif formato.lower() == "csv":
             output = StringIO()
-            writer = csv.writer(output)
-            
-            writer.writerow(['REPORTE FINANCIERO', self.__periodo.title()])
-            writer.writerow(['Generado:', self.obtener_fecha_generacion()])
-            writer.writerow(['Por:', self.get_generado_por()])
-            writer.writerow([])
-            writer.writerow(['CONCEPTO', 'VALOR'])
-            
-            for clave, valor in contenido.items():
-                if clave != 'Detalles':
-                    writer.writerow([clave, valor])
-            
+            writer = csv.DictWriter(output, fieldnames=['Material', 'Autor', 'Préstamos'])
+            writer.writeheader()
+            for m in self._datos:
+                writer.writerow({
+                    'Material': m['titulo'],
+                    'Autor': m['autor'],
+                    'Préstamos': m['prestamos']
+                })
             return output.getvalue()
         
-        return "Formato no soportado"
+        else:
+            lines = [f"REPORTE: {self.get_titulo_reporte()}"]
+            lines.append(f"Orden: {self.__ordenar_por}")
+            for k, v in contenido.items():
+                if k.startswith('Top'):
+                    lines.append(f"{k}: {v}")
+            return "\n".join(lines)
 
-# ========== MENÚ INTERACTIVO ==========
-class MenuReportes:
+class ReporteUsuarios(Reporte):
+    def __init__(self, titulo, generador, tipo_usuario=None, incluir_morosos=True):
+        super().__init__(titulo, generador)
+        self.__tipo_usuario = tipo_usuario
+        self.__incluir_morosos = incluir_morosos
+        self.__datos_usuarios = []
+    
+    def agregar_usuario(self, nombre, tipo, activos, atrasados, moroso):
+        self.__datos_usuarios.append({
+            'nombre': nombre,
+            'tipo': tipo,
+            'activos': activos,
+            'atrasados': atrasados,
+            'moroso': moroso
+        })
+    
+    def generar_contenido(self):
+        filtrados = self.__datos_usuarios
+        
+        if self.__tipo_usuario:
+            filtrados = [u for u in filtrados if u['tipo'] == self.__tipo_usuario]
+        
+        if not self.__incluir_morosos:
+            filtrados = [u for u in filtrados if not u['moroso']]
+        
+        self._datos = self._Reporte__procesar_datos(filtrados)
+        
+        tipos = {}
+        morosos = []
+        total_activos = 0
+        
+        for u in self._datos:
+            tipo = u['tipo']
+            tipos[tipo] = tipos.get(tipo, 0) + 1
+            total_activos += u['activos']
+            if u['moroso']:
+                morosos.append(u['nombre'])
+        
+        contenido = {
+            'Título': self.get_titulo_reporte(),
+            'Total usuarios': len(self._datos),
+            'Préstamos activos': total_activos,
+            'Usuarios morosos': len(morosos)
+        }
+        
+        for tipo, cantidad in tipos.items():
+            contenido[f'{tipo.capitalize()}s'] = cantidad
+        
+        if morosos and self.__incluir_morosos:
+            contenido['Lista morosos'] = ", ".join(morosos[:3])
+        
+        return contenido
+    
+    def exportar_formato(self, formato="texto"):
+        contenido = self.generar_contenido()
+        
+        if formato.lower() == "json":
+            return json.dumps(contenido, indent=2, ensure_ascii=False)
+        
+        elif formato.lower() == "csv":
+            output = StringIO()
+            writer = csv.DictWriter(output, fieldnames=['Usuario', 'Tipo', 'Activos', 'Moroso'])
+            writer.writeheader()
+            for u in self._datos:
+                writer.writerow({
+                    'Usuario': u['nombre'],
+                    'Tipo': u['tipo'],
+                    'Activos': u['activos'],
+                    'Moroso': 'Sí' if u['moroso'] else 'No'
+                })
+            return output.getvalue()
+        
+        else:
+            lines = [f"REPORTE USUARIOS: {self.get_titulo_reporte()}"]
+            for k, v in contenido.items():
+                lines.append(f"{k}: {v}")
+            return "\n".join(lines)
+
+class ReporteFinanciero(Reporte):
+    def __init__(self, titulo, generador, periodo):
+        super().__init__(titulo, generador)
+        self.__periodo = periodo
+        self.__ingresos = []
+        self.__multas = []
+    
+    def agregar_ingreso(self, concepto, monto, fecha):
+        self.__ingresos.append({
+            'concepto': concepto,
+            'monto': float(monto),
+            'fecha': fecha
+        })
+    
+    def agregar_multa(self, usuario, monto, motivo, fecha):
+        self.__multas.append({
+            'usuario': usuario,
+            'monto': float(monto),
+            'motivo': motivo,
+            'fecha': fecha
+        })
+    
+    def generar_contenido(self):
+        total_ingresos = sum(i['monto'] for i in self.__ingresos)
+        total_multas = sum(m['monto'] for m in self.__multas)
+        
+        self._datos = self._Reporte__procesar_datos(self.__ingresos + self.__multas)
+        
+        montos_ingresos = [i['monto'] for i in self.__ingresos]
+        stats_ingresos = self._Reporte__calcular_estadisticas(montos_ingresos)
+        
+        montos_multas = [m['monto'] for m in self.__multas]
+        stats_multas = self._Reporte__calcular_estadisticas(montos_multas)
+        
+        return {
+            'Título': self.get_titulo_reporte(),
+            'Período': self.__periodo,
+            'Total ingresos': f"${total_ingresos:.2f}",
+            'Total multas': f"${total_multas:.2f}",
+            'Balance': f"${total_ingresos + total_multas:.2f}",
+            'Transacciones': len(self._datos),
+            'Ingreso promedio': f"${stats_ingresos.get('promedio', 0):.2f}",
+            'Multa promedio': f"${stats_multas.get('promedio', 0):.2f}"
+        }
+    
+    def exportar_formato(self, formato="texto"):
+        contenido = self.generar_contenido()
+        
+        if formato.lower() == "json":
+            return json.dumps(contenido, indent=2, ensure_ascii=False)
+        
+        elif formato.lower() == "csv":
+            output = StringIO()
+            writer = csv.writer(output)
+            writer.writerow(['Concepto', 'Valor'])
+            for k, v in contenido.items():
+                writer.writerow([k, v])
+            return output.getvalue()
+        
+        else:
+            lines = [f"REPORTE FINANCIERO: {self.get_titulo_reporte()}"]
+            lines.append(f"Período: {self.__periodo}")
+            for k in ['Total ingresos', 'Total multas', 'Balance', 'Transacciones']:
+                if k in contenido:
+                    lines.append(f"{k}: {contenido[k]}")
+            return "\n".join(lines)
+
+class ReporteService:
     def __init__(self):
-        self.reportes_generados = []
+        self.reportes = []
     
-    def mostrar_menu_principal(self):
-        print("\n" + "="*60)
+    def crear_reporte_prestamos(self):
+        reporte = ReportePrestamos(
+            "Préstamos Enero 2024",
+            "Administrador",
+            "2024-01-01",
+            "2024-01-31"
+        )
+        
+        # Datos de ejemplo
+        datos = [
+            ("Ana López", "Cien Años de Soledad", "2024-01-10", "devuelto"),
+            ("Carlos Ruiz", "Python Crash Course", "2024-01-15", "activo"),
+            ("Dr. Martínez", "Física Universitaria", "2024-01-20", "devuelto"),
+            ("Dra. González", "Clean Code", "2024-01-25", "atrasado"),
+            ("Juan García", "El Quijote", "2024-01-05", "devuelto")
+        ]
+        
+        for usuario, material, fecha, estado in datos:
+            reporte.agregar_prestamo(usuario, material, fecha, estado)
+        
+        self.reportes.append(reporte)
+        return reporte
+    
+    def crear_reporte_materiales(self):
+        reporte = ReporteMateriales(
+            "Materiales Más Solicitados 2024",
+            "Bibliotecario",
+            "mas_prestados"
+        )
+        
+        # Datos de ejemplo
+        materiales = [
+            ("Cien Años de Soledad", "Gabriel García Márquez", 45),
+            ("Python Crash Course", "Eric Matthes", 38),
+            ("Clean Code", "Robert C. Martin", 32),
+            ("1984", "George Orwell", 28),
+            ("El Quijote", "Miguel de Cervantes", 25)
+        ]
+        
+        for titulo, autor, prestamos in materiales:
+            reporte.agregar_material(titulo, autor, prestamos)
+        
+        self.reportes.append(reporte)
+        return reporte
+    
+    def crear_reporte_usuarios(self):
+        reporte = ReporteUsuarios(
+            "Usuarios Activos con Morosos",
+            "Administración",
+            None,  # Todos los tipos
+            True   # Incluir morosos
+        )
+        
+        # Datos de ejemplo
+        usuarios = [
+            ("Ana López", "estudiante", 2, 1, True),
+            ("Carlos Ruiz", "estudiante", 1, 0, False),
+            ("Dr. Martínez", "profesor", 3, 0, False),
+            ("Dra. González", "profesor", 4, 2, True),
+            ("Juan García", "publico", 1, 1, True)
+        ]
+        
+        for nombre, tipo, activos, atrasados, moroso in usuarios:
+            reporte.agregar_usuario(nombre, tipo, activos, atrasados, moroso)
+        
+        self.reportes.append(reporte)
+        return reporte
+    
+    def crear_reporte_financiero(self):
+        reporte = ReporteFinanciero(
+            "Balance Financiero Q1 2024",
+            "Contabilidad",
+            "Enero - Marzo 2024"
+        )
+        
+        # Datos de ejemplo
+        reporte.agregar_ingreso("Préstamos estudiantes", 150.00, "2024-01-15")
+        reporte.agregar_ingreso("Préstamos profesores", 250.00, "2024-02-10")
+        reporte.agregar_ingreso("Renovaciones", 75.50, "2024-03-05")
+        
+        reporte.agregar_multa("Ana López", 7.50, "Retraso 15 días", "2024-01-30")
+        reporte.agregar_multa("Dra. González", 10.00, "Retraso 20 días", "2024-02-25")
+        reporte.agregar_multa("Juan García", 3.00, "Retraso 6 días", "2024-03-20")
+        
+        self.reportes.append(reporte)
+        return reporte
+
+class ReporteMenu:
+    def __init__(self):
+        self.service = ReporteService()
+    
+    def mostrar_menu(self):
+        print("\n" + "="*50)
         print("📊 SISTEMA DE REPORTES Y ESTADÍSTICAS")
-        print("="*60)
-        print("1. 📖 Generar reporte de préstamos")
-        print("2. 📚 Generar reporte de materiales")
-        print("3. 👥 Generar reporte de usuarios")
-        print("4. 💰 Generar reporte financiero")
-        print("5. 👀 Ver todos los reportes generados")
-        print("6. 💾 Exportar reporte a formato")
-        print("7. 🎯 Demostrar polimorfismo")
-        print("8. 🔒 Demostrar encapsulamiento")
-        print("9. 📈 Comparar reportes")
-        print("0. 🚪 Salir")
-        print("-"*60)
+        print("="*50)
+        print("1. Generar reporte de préstamos")
+        print("2. Generar reporte de materiales")
+        print("3. Generar reporte de usuarios")
+        print("4. Generar reporte financiero")
+        print("5. Ver todos los reportes")
+        print("6. Exportar reportes a diferentes formatos")
+        print("7. Demostrar polimorfismo")
+        print("8. Demostrar encapsulamiento")
+        print("9. Verificar clase abstracta")
+        print("0. Salir")
+        print("-"*50)
     
-    def obtener_entrada(self, mensaje, tipo=str):
+    def get_input(self, prompt, tipo=str):
         while True:
             try:
-                entrada = input(f"{mensaje}: ").strip()
-                if tipo == int:
-                    return int(entrada)
-                elif tipo == float:
-                    return float(entrada)
-                return entrada
-            except ValueError:
-                print("❌ Entrada inválida. Intente nuevamente.")
+                valor = input(prompt).strip()
+                if tipo == int: return int(valor)
+                return valor
+            except: print("❌ Valor inválido")
     
     def generar_reporte_prestamos(self):
-        print("\n" + "="*40)
-        print("📖 GENERAR REPORTE DE PRÉSTAMOS")
-        print("="*40)
-        
-        generado_por = self.obtener_entrada("Generado por")
-        
-        print("\n🔍 Configurar filtro de fechas:")
-        print("1. Últimos 30 días (predeterminado)")
-        print("2. Última semana")
-        print("3. Último año")
-        print("4. Personalizado")
-        
-        opcion = self.obtener_entrada("Seleccione período", int)
-        
-        fecha_inicio = None
-        fecha_fin = None
-        
-        if opcion == 1:
-            fecha_inicio = datetime.now() - timedelta(days=30)
-            fecha_fin = datetime.now()
-        elif opcion == 2:
-            fecha_inicio = datetime.now() - timedelta(days=7)
-            fecha_fin = datetime.now()
-        elif opcion == 3:
-            fecha_inicio = datetime.now() - timedelta(days=365)
-            fecha_fin = datetime.now()
-        elif opcion == 4:
-            print("⚠️  Fecha personalizada no implementada, usando predeterminado")
-            fecha_inicio = datetime.now() - timedelta(days=30)
-            fecha_fin = datetime.now()
-        else:
-            fecha_inicio = datetime.now() - timedelta(days=30)
-            fecha_fin = datetime.now()
-        
-        try:
-            reporte = ReportePrestamos(generado_por, fecha_inicio, fecha_fin)
-            self.reportes_generados.append(reporte)
-            print(f"\n✅ Reporte generado exitosamente!")
-            reporte.visualizar()
-        except Exception as e:
-            print(f"❌ Error al generar reporte: {e}")
+        print("\n📋 GENERANDO REPORTE DE PRÉSTAMOS...")
+        reporte = self.service.crear_reporte_prestamos()
+        reporte.visualizar()
     
     def generar_reporte_materiales(self):
-        print("\n" + "="*40)
-        print("📚 GENERAR REPORTE DE MATERIALES")
-        print("="*40)
-        
-        generado_por = self.obtener_entrada("Generado por")
-        
-        print("\n🔍 Ordenar por:")
-        print("1. Más prestados")
-        print("2. Menos prestados")
-        print("3. Título (A-Z)")
-        
-        opcion = self.obtener_entrada("Seleccione orden", int)
-        
-        orden = "mas_prestados"
-        if opcion == 1:
-            orden = "mas_prestados"
-        elif opcion == 2:
-            orden = "menos_prestados"
-        elif opcion == 3:
-            orden = "titulo"
-        
-        try:
-            reporte = ReporteMateriales(generado_por, orden)
-            self.reportes_generados.append(reporte)
-            print(f"\n✅ Reporte generado exitosamente!")
-            reporte.visualizar()
-        except Exception as e:
-            print(f"❌ Error al generar reporte: {e}")
+        print("\n📚 GENERANDO REPORTE DE MATERIALES...")
+        reporte = self.service.crear_reporte_materiales()
+        reporte.visualizar()
     
     def generar_reporte_usuarios(self):
-        print("\n" + "="*40)
-        print("👥 GENERAR REPORTE DE USUARIOS")
-        print("="*40)
-        
-        generado_por = self.obtener_entrada("Generado por")
-        
-        print("\n🔍 Filtrar por tipo de usuario:")
-        print("1. Todos los usuarios")
-        print("2. Solo estudiantes")
-        print("3. Solo profesores")
-        print("4. Solo investigadores")
-        print("5. Solo usuarios públicos")
-        
-        opcion_tipo = self.obtener_entrada("Seleccione tipo", int)
-        
-        tipo_usuario = None
-        if opcion_tipo == 1:
-            tipo_usuario = None
-        elif opcion_tipo == 2:
-            tipo_usuario = "Estudiante"
-        elif opcion_tipo == 3:
-            tipo_usuario = "Profesor"
-        elif opcion_tipo == 4:
-            tipo_usuario = "Investigador"
-        elif opcion_tipo == 5:
-            tipo_usuario = "UsuarioPublico"
-        
-        print("\n🔍 Incluir usuarios morosos?")
-        print("1. Sí, incluir morosos")
-        print("2. No, excluir morosos")
-        
-        opcion_morosos = self.obtener_entrada("Seleccione opción", int)
-        incluir_morosos = (opcion_morosos == 1)
-        
-        try:
-            reporte = ReporteUsuarios(generado_por, tipo_usuario, incluir_morosos)
-            self.reportes_generados.append(reporte)
-            print(f"\n✅ Reporte generado exitosamente!")
-            reporte.visualizar()
-        except Exception as e:
-            print(f"❌ Error al generar reporte: {e}")
+        print("\n👥 GENERANDO REPORTE DE USUARIOS...")
+        reporte = self.service.crear_reporte_usuarios()
+        reporte.visualizar()
     
     def generar_reporte_financiero(self):
-        print("\n" + "="*40)
-        print("💰 GENERAR REPORTE FINANCIERO")
-        print("="*40)
-        
-        generado_por = self.obtener_entrada("Generado por")
-        
-        print("\n🔍 Seleccionar período:")
-        print("1. Diario")
-        print("2. Semanal")
-        print("3. Mensual")
-        print("4. Anual")
-        
-        opcion = self.obtener_entrada("Seleccione período", int)
-        
-        periodo = "mensual"
-        if opcion == 1:
-            periodo = "diario"
-        elif opcion == 2:
-            periodo = "semanal"
-        elif opcion == 3:
-            periodo = "mensual"
-        elif opcion == 4:
-            periodo = "anual"
-        
-        try:
-            reporte = ReporteFinanciero(generado_por, periodo)
-            self.reportes_generados.append(reporte)
-            print(f"\n✅ Reporte generado exitosamente!")
-            reporte.visualizar()
-        except Exception as e:
-            print(f"❌ Error al generar reporte: {e}")
+        print("\n💰 GENERANDO REPORTE FINANCIERO...")
+        reporte = self.service.crear_reporte_financiero()
+        reporte.visualizar()
     
-    def ver_reportes_generados(self):
-        if not self.reportes_generados:
-            print("\n📭 No hay reportes generados.")
+    def ver_todos_reportes(self):
+        if not self.service.reportes:
+            print("❌ No hay reportes generados")
             return
         
-        print("\n" + "="*60)
-        print("📋 REPORTES GENERADOS")
-        print("="*60)
-        
-        for i, reporte in enumerate(self.reportes_generados, 1):
-            print(f"{i}. {reporte.get_titulo_reporte()}")
-            print(f"   Generado por: {reporte.get_generado_por()}")
-            print(f"   Fecha: {reporte.obtener_fecha_generacion()}")
-            print(f"   Tipo: {reporte.__class__.__name__}")
+        print("\n📊 TODOS LOS REPORTES:")
+        for i, reporte in enumerate(self.service.reportes, 1):
+            print(f"{i}. {reporte}")
+            contenido = reporte.generar_contenido()
+            if isinstance(contenido, dict):
+                items = list(contenido.items())[:2]
+                for k, v in items:
+                    print(f"   {k}: {v}")
             print()
     
-    def exportar_reporte(self):
-        if not self.reportes_generados:
-            print("\n📭 No hay reportes para exportar.")
+    def exportar_reportes(self):
+        if not self.service.reportes:
+            print("❌ No hay reportes para exportar")
             return
         
-        self.ver_reportes_generados()
+        print("\n📤 FORMATOS DE EXPORTACIÓN:")
+        print("1. Texto")
+        print("2. JSON")
+        print("3. CSV")
         
-        try:
-            opcion = self.obtener_entrada("\n📤 Seleccione número de reporte a exportar", int) - 1
-            if 0 <= opcion < len(self.reportes_generados):
-                reporte = self.reportes_generados[opcion]
-                
-                print("\n📁 Seleccionar formato de exportación:")
-                print("1. Texto plano (.txt)")
-                print("2. JSON (.json)")
-                print("3. CSV (.csv)")
-                
-                formato_opcion = self.obtener_entrada("Seleccione formato", int)
-                
-                formato = "texto"
-                extension = ".txt"
-                if formato_opcion == 1:
-                    formato = "texto"
-                    extension = ".txt"
-                elif formato_opcion == 2:
-                    formato = "json"
-                    extension = ".json"
-                elif formato_opcion == 3:
-                    formato = "csv"
-                    extension = ".csv"
-                
-                contenido = reporte.exportar_formato(formato)
-                
-                # Generar nombre de archivo
-                nombre_base = reporte.get_titulo_reporte().lower().replace(" ", "_")
-                fecha = datetime.now().strftime("%Y%m%d_%H%M%S")
-                nombre_archivo = f"{nombre_base}_{fecha}{extension}"
-                
-                # Guardar en archivo
-                with open(nombre_archivo, 'w', encoding='utf-8') as f:
-                    f.write(contenido)
-                
-                print(f"\n✅ Reporte exportado exitosamente!")
-                print(f"   Archivo: {nombre_archivo}")
-                print(f"   Tamaño: {len(contenido)} caracteres")
-                
-                # Mostrar vista previa
-                print(f"\n📄 Vista previa (primeras 10 líneas):")
-                print("-"*40)
-                lineas = contenido.split('\n')[:10]
-                for linea in lineas:
-                    print(linea)
-                if len(contenido.split('\n')) > 10:
-                    print("...")
-                
-        except (ValueError, IndexError):
+        formato_opcion = self.get_input("Seleccione formato: ", int)
+        formatos = {1: "texto", 2: "json", 3: "csv"}
+        
+        if formato_opcion not in formatos:
             print("❌ Opción inválida")
-        except Exception as e:
-            print(f"❌ Error al exportar: {e}")
+            return
+        
+        formato = formatos[formato_opcion]
+        
+        print(f"\n📄 EXPORTANDO A {formato.upper()}:")
+        for i, reporte in enumerate(self.service.reportes, 1):
+            try:
+                exportado = reporte.exportar_formato(formato)
+                print(f"{i}. {reporte.get_titulo_reporte()}:")
+                print(f"   Longitud: {len(exportado)} caracteres")
+                if formato == "texto":
+                    lineas = exportado.split('\n')
+                    for linea in lineas[:3]:
+                        print(f"   {linea}")
+                    if len(lineas) > 3:
+                        print(f"   ... ({len(lineas)-3} líneas más)")
+                print()
+            except Exception as e:
+                print(f"{i}. Error: {e}")
     
     def demostrar_polimorfismo(self):
-        print("\n" + "="*60)
-        print("🎯 DEMOSTRACIÓN DE POLIMORFISMO")
-        print("="*60)
-        print("Mismo método generar_contenido(), diferentes estructuras:")
-        print("-"*60)
+        print("\n🎯 DEMOSTRACIÓN DE POLIMORFISMO")
+        print("-"*40)
         
-        # Crear un reporte de cada tipo
-        generado_por = "Sistema Demo"
+        # Crear reportes de ejemplo
+        reportes = [
+            ReportePrestamos("Préstamos Test", "Admin", "2024-01-01", "2024-01-31"),
+            ReporteMateriales("Materiales Test", "Admin", "mas_prestados"),
+            ReporteUsuarios("Usuarios Test", "Admin", None, True),
+            ReporteFinanciero("Financiero Test", "Admin", "Test")
+        ]
         
-        try:
-            reportes = [
-                ReportePrestamos(generado_por),
-                ReporteMateriales(generado_por),
-                ReporteUsuarios(generado_por),
-                ReporteFinanciero(generado_por)
-            ]
-            
-            for reporte in reportes:
-                contenido = reporte.generar_contenido()
-                print(f"\n{reporte.__class__.__name__}:")
-                print(f"  Tipo de contenido: {type(contenido).__name__}")
-                
-                if isinstance(contenido, dict):
-                    print(f"  Campos principales: {list(contenido.keys())[:3]}...")
-                    if 'Detalles' in contenido:
-                        print(f"  Cantidad de detalles: {len(contenido['Detalles'])}")
-                else:
-                    print(f"  Longitud: {len(str(contenido))} caracteres")
-            
-            print("\n" + "-"*60)
-            print("Mismo método exportar_formato(), diferentes resultados:")
-            print("-"*60)
-            
-            reporte = reportes[0]  # Usar el primero como ejemplo
+        # Agregar datos mínimos
+        reportes[0].agregar_prestamo("Test", "Test", "2024-01-15", "activo")
+        reportes[1].agregar_material("Test", "Autor", 10)
+        reportes[2].agregar_usuario("Test", "estudiante", 1, 0, False)
+        reportes[3].agregar_ingreso("Test", 100.00, "2024-01-01")
+        
+        print("📋 Reportes creados:")
+        for r in reportes:
+            print(f"  {r.__class__.__name__}: {r.get_titulo_reporte()}")
+        
+        print("\n🔄 Generando contenido (polimorfismo):")
+        for r in reportes:
+            contenido = r.generar_contenido()
+            print(f"  {r.__class__.__name__:<20} → {type(contenido).__name__}")
+        
+        print("\n📤 Exportando a diferentes formatos:")
+        for r in reportes:
             for formato in ["texto", "json", "csv"]:
                 try:
-                    exportado = reporte.exportar_formato(formato)
-                    print(f"\n{formato.upper()}:")
-                    print(f"  Tipo: {type(exportado).__name__}")
-                    print(f"  Longitud: {len(exportado)} caracteres")
+                    exportado = r.exportar_formato(formato)
+                    print(f"  {r.__class__.__name__:<20} {formato:<6} → {len(exportado)} chars")
                 except:
-                    print(f"\n{formato.upper()}: No soportado")
-                    
-        except Exception as e:
-            print(f"❌ Error en demostración: {e}")
+                    print(f"  {r.__class__.__name__:<20} {formato:<6} → Error")
+        
+        print("\n✅ Polimorfismo demostrado")
     
     def demostrar_encapsulamiento(self):
-        print("\n" + "="*60)
-        print("🔒 DEMOSTRACIÓN DE ENCAPSULAMIENTO")
-        print("="*60)
+        print("\n🔒 DEMOSTRACIÓN DE ENCAPSULAMIENTO")
+        print("-"*40)
         
-        # Crear un reporte de ejemplo
-        generado_por = "Demo"
-        reporte = ReporteFinanciero(generado_por, "mensual")
+        reporte = ReportePrestamos("Test", "Admin", "2024-01-01", "2024-01-31")
         
-        print("1. Intentando acceder a atributos privados directamente:")
-        print("   reporte.__titulo_reporte → Generará AttributeError")
+        print("✅ Acceso mediante métodos públicos:")
+        print(f"  Título: {reporte.get_titulo_reporte()}")
+        print(f"  Generado por: {reporte.get_generado_por()}")
         
-        try:
-            print(f"   Intento: {reporte.__titulo_reporte}")
-        except AttributeError:
-            print("   ✅ CORRECTO: AttributeError al acceder a __titulo_reporte")
+        print("\n✅ Validación en setters:")
+        try: reporte.set_titulo_reporte("")
+        except ValueError as e: print(f"  ✅ Correcto: {e}")
         
-        print("\n2. Usando getters para acceso controlado:")
-        print(f"   Título: {reporte.get_titulo_reporte()}")
-        print(f"   Generado por: {reporte.get_generado_por()}")
-        print(f"   Fecha: {reporte.obtener_fecha_generacion()}")
+        print("\n❌ Intentando acceso a métodos privados:")
+        try: procesado = reporte.__procesar_datos([])
+        except AttributeError: print("  ✅ Correcto: Método privado no accesible")
         
-        print("\n3. Datos protegidos (_datos):")
-        contenido = reporte.generar_contenido()
-        print(f"   Datos procesados: {len(contenido.get('Detalles', []))} elementos")
-        print("   Solo accesibles a través de métodos controlados")
+        try: stats = reporte.__calcular_estadisticas([])
+        except AttributeError: print("  ✅ Correcto: Método privado no accesible")
     
-    def comparar_reportes(self):
-        if len(self.reportes_generados) < 2:
-            print("\n📭 Se necesitan al menos 2 reportes para comparar.")
-            return
-        
-        print("\n" + "="*60)
-        print("📈 COMPARACIÓN DE REPORTES")
-        print("="*60)
-        
-        print("📋 Reportes disponibles:")
-        for i, reporte in enumerate(self.reportes_generados[-5:], 1):  # Últimos 5
-            print(f"{i}. {reporte.get_titulo_reporte()} ({reporte.__class__.__name__})")
-        
-        try:
-            opcion1 = self.obtener_entrada("\n🔍 Seleccione primer reporte", int) - 1
-            opcion2 = self.obtener_entrada("Seleccione segundo reporte", int) - 1
-            
-            if (0 <= opcion1 < len(self.reportes_generados) and 
-                0 <= opcion2 < len(self.reportes_generados)):
-                
-                reporte1 = self.reportes_generados[opcion1]
-                reporte2 = self.reportes_generados[opcion2]
-                
-                print("\n" + "="*60)
-                print("🔄 COMPARANDO REPORTES")
-                print("="*60)
-                
-                print(f"\n📄 REPORTE 1: {reporte1.get_titulo_reporte()}")
-                print(f"   Tipo: {reporte1.__class__.__name__}")
-                print(f"   Generado: {reporte1.obtener_fecha_generacion()}")
-                
-                print(f"\n📄 REPORTE 2: {reporte2.get_titulo_reporte()}")
-                print(f"   Tipo: {reporte2.__class__.__name__}")
-                print(f"   Generado: {reporte2.obtener_fecha_generacion()}")
-                
-                print("\n" + "-"*60)
-                print("📊 DIFERENCIAS:")
-                
-                # Comparar tipos
-                if reporte1.__class__ == reporte2.__class__:
-                    print("✅ Mismo tipo de reporte")
-                else:
-                    print("⚠️  Diferentes tipos de reporte")
-                    print(f"   {reporte1.__class__.__name__} vs {reporte2.__class__.__name__}")
-                
-                # Comparar fechas
-                fecha1 = reporte1.get_fecha_generacion()
-                fecha2 = reporte2.get_fecha_generacion()
-                diferencia = abs((fecha1 - fecha2).total_seconds() / 3600)  # Horas
-                
-                print(f"⏰ Diferencia en tiempo: {diferencia:.1f} horas")
-                
-                # Generar y comparar contenidos brevemente
-                try:
-                    contenido1 = reporte1.generar_contenido()
-                    contenido2 = reporte2.generar_contenido()
-                    
-                    if isinstance(contenido1, dict) and isinstance(contenido2, dict):
-                        print(f"📦 Campos en común: {len(set(contenido1.keys()) & set(contenido2.keys()))}")
-                        
-                        # Buscar diferencias en valores clave
-                        for key in ['Total', 'Total usuarios', 'Total materiales', 'Ingresos totales']:
-                            if key in contenido1 and key in contenido2:
-                                if contenido1[key] != contenido2[key]:
-                                    print(f"📝 Diferencia en '{key}':")
-                                    print(f"   Reporte 1: {contenido1[key]}")
-                                    print(f"   Reporte 2: {contenido2[key]}")
-                                    break
-                        
-                except:
-                    print("⚠️  No se pudieron comparar contenidos completos")
-                
-                print("\n🎯 CONCLUSIÓN:")
-                if reporte1.__class__ == reporte2.__class__:
-                    print("   Estos reportes son del mismo tipo y pueden compararse directamente")
-                else:
-                    print("   Estos reportes son de tipos diferentes, muestran información complementaria")
-                    
-        except (ValueError, IndexError):
-            print("❌ Opción inválida")
-        except Exception as e:
-            print(f"❌ Error al comparar: {e}")
+    def verificar_clase_abstracta(self):
+        print("\n⚠️ VERIFICANDO CLASE ABSTRACTA")
+        print("-"*40)
+        try: reporte = Reporte("Test", "Admin")
+        except (TypeError, NotImplementedError) as e: print(f"✅ Correcto: {e}")
     
-    def ejecutar(self):
+    def run(self):
+        print("🚀 INICIANDO SISTEMA DE REPORTES...")
         while True:
-            self.mostrar_menu_principal()
-            opcion = self.obtener_entrada("Seleccione una opción", int)
-            
-            if opcion == 0:
-                print("\n👋 ¡Gracias por usar el sistema de reportes!")
-                break
-            
-            elif opcion == 1:
-                self.generar_reporte_prestamos()
-            
-            elif opcion == 2:
-                self.generar_reporte_materiales()
-            
-            elif opcion == 3:
-                self.generar_reporte_usuarios()
-            
-            elif opcion == 4:
-                self.generar_reporte_financiero()
-            
-            elif opcion == 5:
-                self.ver_reportes_generados()
-            
-            elif opcion == 6:
-                self.exportar_reporte()
-            
-            elif opcion == 7:
-                self.demostrar_polimorfismo()
-            
-            elif opcion == 8:
-                self.demostrar_encapsulamiento()
-            
-            elif opcion == 9:
-                self.comparar_reportes()
-            
-            else:
-                print("❌ Opción inválida")
-            
-            if opcion != 0:
-                input("\n⏎ Presione Enter para continuar...")
+            self.mostrar_menu()
+            opcion = self.get_input("Opción: ", str)
+            if opcion == "0": print("👋 ¡Adiós!"); break
+            elif opcion == "1": self.generar_reporte_prestamos()
+            elif opcion == "2": self.generar_reporte_materiales()
+            elif opcion == "3": self.generar_reporte_usuarios()
+            elif opcion == "4": self.generar_reporte_financiero()
+            elif opcion == "5": self.ver_todos_reportes()
+            elif opcion == "6": self.exportar_reportes()
+            elif opcion == "7": self.demostrar_polimorfismo()
+            elif opcion == "8": self.demostrar_encapsulamiento()
+            elif opcion == "9": self.verificar_clase_abstracta()
+            else: print("❌ Opción inválida")
+            if opcion != "0": input("\n⏎ Presiona Enter...")
 
-# ========== PROGRAMA PRINCIPAL ==========
-if __name__ == "__main__":
-    print("="*60)
-    print("EJERCICIO 1.4: SISTEMA DE REPORTES Y ESTADÍSTICAS")
-    print("="*60)
-    
-    # Demostrar que no se puede instanciar clase abstracta
-    print("\n🔍 Demostrando ABSTRACCIÓN:")
-    try:
-        # Intentar crear objeto de clase abstracta
-        reporte = Reporte("Test", "Admin")
-        print("❌ ERROR: No debería poder instanciarse")
-    except NotImplementedError as e:
-        print(f"✅ CORRECTO: No se puede instanciar Reporte base")
-        print(f"   Error: {e}")
-    
-    input("\n⏎ Presione Enter para iniciar el sistema interactivo...")
-    
-    # Iniciar menú interactivo
-    sistema = MenuReportes()
-    sistema.ejecutar()
+menu = ReporteMenu()
+menu.run()
